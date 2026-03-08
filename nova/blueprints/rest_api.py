@@ -1860,7 +1860,7 @@ def register():
         db.rollback()
         return _err(str(e), 500)
     finally:
-        db.remove()
+        db.close()
 
 
 @rest_api_bp.route("/auth/login", methods=["POST"])
@@ -1904,7 +1904,7 @@ def login():
         db.rollback()
         return _err(str(e), 500)
     finally:
-        db.remove()
+        db.close()
 
 
 # ──────────────────────────────────────────────────────────
