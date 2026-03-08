@@ -7426,31 +7426,32 @@ def login():
     if SINGLE_USER_MODE:
         # In single-user mode, the login page is not needed, just redirect.
         return redirect(url_for('core.index'))
-        # --- MULTI-USER MODE LOGIC ---
-        if request.method == 'POST':
-            username = request.form.get('username')
-            password = request.form.get('password')
-            db_sess = SessionLocal()
-            try:
-                user = db_sess.query(DbUser).filter_by(username=username).first()
-                if user and user.password_hash and check_password_hash(user.password_hash, password):
-                    if not user.active:
-                        flash("Account is deactivated.", "error")
-                        return render_template('login.html')
-                    login_user(user)
-                    record_login()
-                    session.modified = True  # Force session save before redirect
-                    flash("Logged in successfully!", "success")
 
-                    next_page = request.form.get('next')
-                    if next_page and next_page.startswith('/'):
-                        return redirect(next_page, code=303)
-                    return redirect(url_for('core.index'), code=303)
-                else:
-                    flash("Invalid username or password.", "error")
-            finally:
-                db_sess.close()
-        return render_template('login.html')
+    # --- MULTI-USER MODE LOGIC ---
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        db_sess = SessionLocal()
+        try:
+            user = db_sess.query(DbUser).filter_by(username=username).first()
+            if user and user.password_hash and check_password_hash(user.password_hash, password):
+                if not user.active:
+                    flash("Account is deactivated.", "error")
+                    return render_template('login.html')
+                login_user(user)
+                record_login()
+                session.modified = True  # Force session save before redirect
+                flash("Logged in successfully!", "success")
+
+                next_page = request.form.get('next')
+                if next_page and next_page.startswith('/'):
+                    return redirect(next_page, code=303)
+                return redirect(url_for('core.index'), code=303)
+            else:
+                flash("Invalid username or password.", "error")
+        finally:
+            db_sess.close()
+    return render_template('login.html')
 
 @core_bp.route('/sso/login')
 def sso_login():
