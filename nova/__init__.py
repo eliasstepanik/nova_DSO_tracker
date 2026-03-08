@@ -15,6 +15,7 @@ March 2025, Anton Gutscher/cle
 # Imports
 # =============================================================================
 import os
+import shutil
 from decouple import config as decouple_config
 from ics import Calendar, Event
 import arrow
@@ -473,6 +474,22 @@ def get_or_create_db_user(db_session, username: str) -> 'DbUser':
             rigs_path = os.path.join(CONFIG_DIR, "rigs_guest_user.yaml")
             jrn_path = os.path.join(CONFIG_DIR, "journal_guest_user.yaml")
 
+            # Copy template files to instance dir if missing
+            _template_pairs = [
+                ("config_guest_user.yaml", cfg_path),
+                ("rigs_default.yaml",      rigs_path),
+                ("journal_default.yaml",   jrn_path),
+            ]
+            for tpl_name, dest in _template_pairs:
+                if not os.path.exists(dest):
+                    src = os.path.join(TEMPLATE_DIR, tpl_name)
+                    if os.path.exists(src):
+                        os.makedirs(os.path.dirname(dest), exist_ok=True)
+                        shutil.copy(src, dest)
+                        print(f"   -> [SEEDING] Copied template '{tpl_name}' to instance dir.")
+                    else:
+                        print(f"   -> [SEEDING] WARNING: Template '{tpl_name}' not found in {TEMPLATE_DIR}.")
+
             cfg_data, _ = _read_yaml(cfg_path)
             rigs_data, _ = _read_yaml(rigs_path)
             jrn_data, _ = _read_yaml(jrn_path)
@@ -485,8 +502,10 @@ def get_or_create_db_user(db_session, username: str) -> 'DbUser':
                 _migrate_journal(db_session, target_user, jrn_data)
                 _migrate_ui_prefs(db_session, target_user, cfg_data)
                 print(f"   -> [SEEDING] YAML import complete.")
+                return True
             else:
-                print(f"   -> [SEEDING] WARNING: config_guest_user.yaml empty or missing.")
+                print(f"   -> [SEEDING] WARNING: config_guest_user.yaml empty or missing. Skipping seed.")
+                return False
         except Exception as e:
             print(f"   -> [SEEDING] ERROR importing from YAML: {e}")
             raise e
@@ -496,9 +515,16 @@ def get_or_create_db_user(db_session, username: str) -> 'DbUser':
         if username == "guest_user":
             loc_count = db_session.query(Location).filter_by(user_id=user.id).count()
             if loc_count == 0:
-                print(f"[PROVISIONING] Detected empty guest_user. Attempting repair from YAML...")
-                _seed_guest_from_yaml(user)
-                db_session.commit()
+                if not hasattr(get_or_create_db_user, '_guest_seed_failed'):
+                    print(f"[PROVISIONING] Detected empty guest_user. Attempting repair from YAML...")
+                    success = _seed_guest_from_yaml(user)
+                    if success:
+                        db_session.commit()
+                        get_or_create_db_user._guest_seed_failed = False
+                    else:
+                        # Mark as failed so we don't retry on every request
+                        get_or_create_db_user._guest_seed_failed = True
+                        print(f"[PROVISIONING] Repair failed. Will not retry until restart.")
         return user
 
     # --- New User Provisioning Path ---
