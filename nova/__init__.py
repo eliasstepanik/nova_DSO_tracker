@@ -7484,6 +7484,7 @@ def login():
                 if not user.active:
                     flash("Account is deactivated.", "error")
                     return render_template('login.html')
+                db_sess.expunge(user)  # Detach before login_user so object stays valid after session close
                 login_user(user)
                 record_login()
                 session.modified = True  # Force session save before redirect
