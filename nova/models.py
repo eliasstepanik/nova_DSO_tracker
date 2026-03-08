@@ -26,6 +26,22 @@ class DbUser(Base):
     password_hash = Column(String(256), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
 
+    # --- Flask-Login interface ---
+    @property
+    def is_active(self):
+        return self.active
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
+
     # --- Relationships ---
     locations = relationship("Location", back_populates="user", cascade="all, delete-orphan")
     objects = relationship("AstroObject", foreign_keys="AstroObject.user_id", back_populates="user",
