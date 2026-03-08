@@ -6,11 +6,13 @@ Prefix: /api/v1  (set during blueprint registration)
 """
 
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, request, jsonify, g
 import uuid
 
 from nova.api_auth import (
     api_key_required,
+    api_key_or_login_required,
     create_api_key,
     hash_api_key,
     key_prefix as _key_prefix,
@@ -1713,6 +1715,191 @@ def update_preferences():
         db.commit()
         db.refresh(pref)
         return _ok(_serialize_ui_pref(pref))
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+# ──────────────────────────────────────────────────────────
+#  STELLARIUM SETTINGS  (per-user, stored in UiPref blob)
+# ──────────────────────────────────────────────────────────
+
+
+_STELLARIUM_DEFAULTS = {
+    "host": "localhost",
+    "port": 8090,
+    "enabled": False,
+}
+
+
+def _get_stellarium_settings(db, user_id):
+    """Extract stellarium settings from UiPref json_blob."""
+    import json as _json
+    pref = db.query(UiPref).filter(UiPref.user_id == user_id).first()
+    if pref and pref.json_blob:
+        try:
+            blob = _json.loads(pref.json_blob)
+            stel = blob.get("stellarium", {})
+            return {
+                "host": stel.get("host", _STELLARIUM_DEFAULTS["host"]),
+                "port": int(stel.get("port", _STELLARIUM_DEFAULTS["port"])),
+                "enabled": bool(stel.get("enabled", _STELLARIUM_DEFAULTS["enabled"])),
+            }
+        except (ValueError, TypeError):
+            pass
+    return dict(_STELLARIUM_DEFAULTS)
+
+
+@rest_api_bp.route("/stellarium/settings", methods=["GET"])
+@api_key_or_login_required
+def get_stellarium_settings():
+    db = _db()
+    try:
+        return _ok(_get_stellarium_settings(db, _user_id()))
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/stellarium/settings", methods=["PUT"])
+@api_key_or_login_required
+def update_stellarium_settings():
+    import json as _json
+    data = request.get_json(silent=True) or {}
+    host = data.get("host", "").strip()
+    port = data.get("port")
+    enabled = data.get("enabled")
+
+    if not host:
+        return _err("host is required")
+    try:
+        port = int(port)
+        if not (1 <= port <= 65535):
+            raise ValueError
+    except (TypeError, ValueError):
+        return _err("port must be a valid number (1-65535)")
+
+    db = _db()
+    try:
+        pref = db.query(UiPref).filter(UiPref.user_id == _user_id()).first()
+        blob = {}
+        if pref and pref.json_blob:
+            try:
+                blob = _json.loads(pref.json_blob)
+            except (ValueError, TypeError):
+                blob = {}
+
+        blob["stellarium"] = {
+            "host": host,
+            "port": port,
+            "enabled": bool(enabled),
+        }
+
+        new_blob = _json.dumps(blob)
+        if pref is None:
+            pref = UiPref(user_id=_user_id(), json_blob=new_blob)
+            db.add(pref)
+        else:
+            pref.json_blob = new_blob
+        db.commit()
+        return _ok(blob["stellarium"])
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+# ──────────────────────────────────────────────────────────
+#  AUTH  (register / login — multi-user mode only)
+# ──────────────────────────────────────────────────────────
+
+
+@rest_api_bp.route("/auth/register", methods=["POST"])
+def register():
+    """
+    Register a new user account.
+
+    Expects JSON: {"username": "...", "password": "..."}
+    Returns the newly created API key.
+    Disabled in single-user mode.
+    """
+    if SINGLE_USER_MODE:
+        return _err("Registration is disabled in single-user mode", 403)
+
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+
+    if not username or not password:
+        return _err("Both 'username' and 'password' are required", 400)
+    if len(password) < 8:
+        return _err("Password must be at least 8 characters", 400)
+
+    db = _db()
+    try:
+        if db.query(DbUser).filter_by(username=username).first():
+            return _err("Username already taken", 409)
+
+        user = DbUser(
+            username=username,
+            password_hash=generate_password_hash(password),
+            active=True,
+        )
+        db.add(user)
+        db.flush()
+
+        raw_key = create_api_key(db, user.id, name="default")
+        db.commit()
+
+        return _ok({
+            "user_id": user.id,
+            "username": user.username,
+            "api_key": raw_key,
+        }, status=201)
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/auth/login", methods=["POST"])
+def login():
+    """
+    Authenticate with username + password and receive an API key.
+
+    Expects JSON: {"username": "...", "password": "..."}
+    Creates a new API key on each successful login.
+    Disabled in single-user mode.
+    """
+    if SINGLE_USER_MODE:
+        return _err("Login is disabled in single-user mode", 403)
+
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+
+    if not username or not password:
+        return _err("Both 'username' and 'password' are required", 400)
+
+    db = _db()
+    try:
+        user = db.query(DbUser).filter_by(username=username).first()
+        if not user or not user.password_hash:
+            return _err("Invalid username or password", 401)
+        if not check_password_hash(user.password_hash, password):
+            return _err("Invalid username or password", 401)
+        if not user.active:
+            return _err("Account is deactivated", 403)
+
+        raw_key = create_api_key(db, user.id, name="login")
+        db.commit()
+
+        return _ok({
+            "user_id": user.id,
+            "username": user.username,
+            "api_key": raw_key,
+        })
     except Exception as e:
         db.rollback()
         return _err(str(e), 500)
