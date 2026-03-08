@@ -17,6 +17,7 @@ March 2025, Anton Gutscher/cle
 import os
 import shutil
 from werkzeug.security import check_password_hash
+from flask_login import LoginManager, login_user, logout_user, current_user
 from decouple import config as decouple_config
 from ics import Calendar, Event
 import arrow
@@ -3055,6 +3056,22 @@ app = Flask(
     template_folder=os.path.join(_project_root, 'templates'),
     static_folder=os.path.join(_project_root, 'static'),
 )
+
+# --- Flask-Login setup ---
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'core.login'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    db_sess = SessionLocal()
+    try:
+        return db_sess.query(DbUser).get(int(user_id))
+    except Exception:
+        return None
+    finally:
+        db_sess.close()
 app.jinja_env.filters['toyaml'] = to_yaml_filter
 app.secret_key = SECRET_KEY
 csrf = CSRFProtect()
