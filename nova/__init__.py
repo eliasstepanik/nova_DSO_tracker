@@ -16,6 +16,7 @@ March 2025, Anton Gutscher/cle
 # =============================================================================
 import os
 import shutil
+from werkzeug.security import check_password_hash
 from decouple import config as decouple_config
 from ics import Calendar, Event
 import arrow
@@ -7425,33 +7426,30 @@ def login():
     if SINGLE_USER_MODE:
         # In single-user mode, the login page is not needed, just redirect.
         return redirect(url_for('core.index'))
-    else:
         # --- MULTI-USER MODE LOGIC ---
         if request.method == 'POST':
             username = request.form.get('username')
             password = request.form.get('password')
-            user = db.session.scalar(db.select(User).where(User.username == username))
-            if user and user.check_password(password):
-                login_user(user)
-                record_login()
-                session.modified = True  # Force session save before redirect
-                flash("Logged in successfully!", "success")
+            db_sess = SessionLocal()
+            try:
+                user = db_sess.query(DbUser).filter_by(username=username).first()
+                if user and user.password_hash and check_password_hash(user.password_hash, password):
+                    if not user.active:
+                        flash("Account is deactivated.", "error")
+                        return render_template('login.html')
+                    login_user(user)
+                    record_login()
+                    session.modified = True  # Force session save before redirect
+                    flash("Logged in successfully!", "success")
 
-                # --- START: THIS IS THE CORRECTED LOGIC ---
-                # Read 'next' from the form's hidden input, not the URL
-                next_page = request.form.get('next')
-
-                # Security check: Only redirect if 'next' is a relative path
-                # Use 303 redirect to ensure browser does a fresh GET with the new session cookie
-                if next_page and next_page.startswith('/'):
-                    return redirect(next_page, code=303)
-
-                # Default redirect if 'next' is missing or invalid
-                return redirect(url_for('core.index'), code=303)
-                # --- END OF CORRECTION ---
-
-            else:
-                flash("Invalid username or password.", "error")
+                    next_page = request.form.get('next')
+                    if next_page and next_page.startswith('/'):
+                        return redirect(next_page, code=303)
+                    return redirect(url_for('core.index'), code=303)
+                else:
+                    flash("Invalid username or password.", "error")
+            finally:
+                db_sess.close()
         return render_template('login.html')
 
 @core_bp.route('/sso/login')
