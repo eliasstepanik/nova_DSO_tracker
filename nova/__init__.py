@@ -3057,6 +3057,12 @@ app = Flask(
     static_folder=os.path.join(_project_root, 'static'),
 )
 
+# --- Flask config ---
+from nova.config import SECRET_KEY
+app.config['SECRET_KEY'] = SECRET_KEY
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # --- Flask-Login setup ---
 login_manager = LoginManager()
 login_manager.init_app(app)
