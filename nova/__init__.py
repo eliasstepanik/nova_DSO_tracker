@@ -107,7 +107,8 @@ import re
 from nova.models import (
     INSTANCE_PATH, DB_PATH, DB_URI, engine, SessionLocal, Base,
     DbUser, Project, SavedView, Location, SavedFraming, HorizonPoint,
-    AstroObject, Component, Rig, JournalSession, UiPref, UserCustomFilter
+    AstroObject, Component, Rig, JournalSession, UiPref, UserCustomFilter,
+    ApiKey,
 )
 from nova.config import (
     APP_VERSION, TEMPLATE_DIR, CACHE_DIR, CONFIG_DIR, BACKUP_DIR,
@@ -143,6 +144,8 @@ from nova.blueprints.journal import journal_bp
 from nova.blueprints.mobile import mobile_bp
 from nova.blueprints.projects import projects_bp
 from nova.blueprints.tools import tools_bp
+from nova.blueprints.rest_api import rest_api_bp
+from nova.api_auth import ensure_single_user_api_key, api_key_or_login_required
 
 
 # =============================================================================
@@ -3171,6 +3174,28 @@ def load_global_request_context():
     # 1. Skip all expensive logic for static files
     if request.endpoint in ('static', 'core.favicon'):
         return
+
+    # 1b. API-key authentication (works in both modes)
+    from nova.api_auth import _extract_api_key_from_request, verify_api_key as _verify_api_key
+    _raw_api_key = _extract_api_key_from_request()
+    if _raw_api_key is not None:
+        _ak_obj, _ak_db_user = _verify_api_key(_raw_api_key)
+        if _ak_obj is None:
+            return jsonify({'error': 'Invalid or revoked API key.'}), 401
+        g.api_key_obj = _ak_obj
+        g.api_authenticated = True
+        if SINGLE_USER_MODE:
+            if not current_user.is_authenticated:
+                login_user(User('default', 'default'))
+        else:
+            if not current_user.is_authenticated:
+                _flask_user = db.session.query(User).filter_by(
+                    username=_ak_db_user.username
+                ).first()
+                if _flask_user and _flask_user.is_active:
+                    login_user(_flask_user)
+                else:
+                    return jsonify({'error': 'User account inactive or not found.'}), 401
 
     # 2. Handle Single-User-Mode login bypass
     if SINGLE_USER_MODE and not current_user.is_authenticated:
@@ -13871,4 +13896,7 @@ app.register_blueprint(journal_bp)
 app.register_blueprint(mobile_bp)
 app.register_blueprint(projects_bp)
 app.register_blueprint(tools_bp)
+app.register_blueprint(rest_api_bp, url_prefix='/api/v1')
 
+# ── API-key bootstrap (single-user mode) ──────────────────────────────────
+ensure_single_user_api_key(app)

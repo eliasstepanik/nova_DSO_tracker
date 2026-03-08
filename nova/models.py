@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 from sqlalchemy import (
-    create_engine, Column, Integer, Float, String, Boolean, Date,
+    create_engine, Column, Integer, Float, String, Boolean, Date, DateTime,
     ForeignKey, Text, UniqueConstraint
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
@@ -384,3 +384,18 @@ class UserCustomFilter(Base):
     created_at = Column(Date, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint('user_id', 'filter_key', name='uq_user_filter_key'),)
+
+
+class ApiKey(Base):
+    """API keys for programmatic access. Supports both single-user and multi-user modes."""
+    __tablename__ = 'api_keys'
+    id = Column(Integer, primary_key=True)
+    key_hash = Column(String(128), nullable=False, unique=True, index=True)
+    key_prefix = Column(String(12), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = Column(String(128), nullable=False, default='default')
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    db_user = relationship('DbUser', backref='api_keys')
