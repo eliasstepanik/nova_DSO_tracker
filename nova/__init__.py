@@ -3067,7 +3067,11 @@ login_manager.login_view = 'core.login'
 def load_user(user_id):
     db_sess = SessionLocal()
     try:
-        return db_sess.query(DbUser).get(int(user_id))
+        user = db_sess.query(DbUser).filter_by(id=int(user_id)).first()
+        if user:
+            # Detach from session so it remains usable after session closes
+            db_sess.expunge(user)
+        return user
     except Exception:
         return None
     finally:
@@ -3230,20 +3234,39 @@ def load_global_request_context():
         g.api_authenticated = True
         if SINGLE_USER_MODE:
             if not current_user.is_authenticated:
-                login_user(User('default', 'default'))
+                _db_sess = SessionLocal()
+                try:
+                    _default_user = _db_sess.query(DbUser).filter_by(username='default').first()
+                    if _default_user:
+                        _db_sess.expunge(_default_user)
+                        login_user(_default_user)
+                finally:
+                    _db_sess.close()
         else:
             if not current_user.is_authenticated:
-                _flask_user = db.session.query(User).filter_by(
-                    username=_ak_db_user.username
-                ).first()
-                if _flask_user and _flask_user.is_active:
-                    login_user(_flask_user)
-                else:
-                    return jsonify({'error': 'User account inactive or not found.'}), 401
+                _db_sess = SessionLocal()
+                try:
+                    _flask_user = _db_sess.query(DbUser).filter_by(
+                        username=_ak_db_user.username
+                    ).first()
+                    if _flask_user and _flask_user.active:
+                        _db_sess.expunge(_flask_user)
+                        login_user(_flask_user)
+                    else:
+                        return jsonify({'error': 'User account inactive or not found.'}), 401
+                finally:
+                    _db_sess.close()
 
     # 2. Handle Single-User-Mode login bypass
     if SINGLE_USER_MODE and not current_user.is_authenticated:
-        login_user(User("default", "default"))
+        _db_sess = SessionLocal()
+        try:
+            _default_user = _db_sess.query(DbUser).filter_by(username='default').first()
+            if _default_user:
+                _db_sess.expunge(_default_user)
+                login_user(_default_user)
+        finally:
+            _db_sess.close()
 
     # 3. Determine username
     username = None
