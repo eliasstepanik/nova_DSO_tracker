@@ -161,11 +161,10 @@ def api_key_or_login_required(f):
 
 
 def ensure_single_user_api_key(app):
-    """In single-user mode, generate an API key on first run and print it.
+    """In single-user mode, ensure an API key exists and always print it.
 
-    Called once during app startup.  Idempotent — if a key already exists for
-    the default user it is reused (but NOT printed again since the raw key
-    can't be recovered).
+    Called once during app startup.  If a key already exists for the
+    default user it is rotated so the raw key can be displayed.
     """
     if not SINGLE_USER_MODE:
         return
@@ -192,12 +191,9 @@ def ensure_single_user_api_key(app):
         )
 
         if existing is not None:
-            # Key already exists — can't show it again (hashed)
-            app.logger.info(
-                f"API key already configured (prefix: {existing.key_prefix}...). "
-                f"If you lost it, delete the key via the API and restart."
-            )
-            return
+            # Rotate: delete old key and create a fresh one so we can print it
+            db.delete(existing)
+            db.commit()
 
         raw_key = create_api_key(db, db_user.id, name="auto-generated")
         print("\n" + "=" * 60)
