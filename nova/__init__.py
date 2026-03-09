@@ -3062,7 +3062,7 @@ from nova.config import SECRET_KEY
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
+print(f"[STARTUP] SECRET_KEY hash: {hash(SECRET_KEY)}, length: {len(SECRET_KEY)}")
 # --- Flask-Login setup ---
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -3071,13 +3071,18 @@ login_manager.login_view = 'core.login'
 
 @login_manager.user_loader
 def load_user(user_id):
+    print(f"[user_loader] Called with user_id={user_id}")
     db_sess = SessionLocal()
     try:
         user = db_sess.query(DbUser).filter_by(id=int(user_id)).first()
         if user:
             db_sess.expunge(user)
+            print(f"[user_loader] Found user: {user.username}")
+        else:
+            print(f"[user_loader] No user found for id={user_id}")
         return user
-    except Exception:
+    except Exception as e:
+        print(f"[user_loader] Exception: {e}")
         return None
     finally:
         db_sess.close()
@@ -3201,25 +3206,6 @@ else:
         def __init__(self, user_id, username):
             self.id = user_id
             self.username = username
-
-# --- SINGLE, UNIFIED USER LOADER ---
-# This one function now correctly handles both modes, and guards against stale session IDs.
-@login_manager.user_loader
-def load_user(user_id):
-    """
-    Unified loader:
-    - SINGLE_USER_MODE: expect the sentinel 'default'
-    - Multi-user: only accept integer IDs; any other value is considered stale and ignored
-    """
-    if SINGLE_USER_MODE:
-        return User(user_id="default", username="default") if user_id == "default" else None
-
-    # Multi-user path: guard against stale 'default' / non-integer IDs in session cookies
-    try:
-        uid = int(user_id)
-    except (TypeError, ValueError):
-        return None
-    return db.session.get(User, uid)
 
 
 @app.before_request
