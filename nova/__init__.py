@@ -3071,18 +3071,13 @@ login_manager.login_view = 'core.login'
 
 @login_manager.user_loader
 def load_user(user_id):
-    print(f"[DEBUG user_loader] Called with user_id={user_id}")
     db_sess = SessionLocal()
     try:
         user = db_sess.query(DbUser).filter_by(id=int(user_id)).first()
         if user:
             db_sess.expunge(user)
-            print(f"[DEBUG user_loader] Found user: {user.username}")
-        else:
-            print(f"[DEBUG user_loader] No user found for id={user_id}")
         return user
-    except Exception as e:
-        print(f"[DEBUG user_loader] Exception: {e}")
+    except Exception:
         return None
     finally:
         db_sess.close()
@@ -3280,14 +3275,12 @@ def load_global_request_context():
 
     # 3. Determine username
     username = None
-    print(f"[DEBUG AUTH] SINGLE_USER_MODE={SINGLE_USER_MODE}, current_user={current_user}, is_authenticated={getattr(current_user, 'is_authenticated', 'N/A')}")
     if SINGLE_USER_MODE:
         username = "default"
         g.is_guest = False
     elif hasattr(current_user, "is_authenticated") and current_user.is_authenticated:
         username = current_user.username
         g.is_guest = False
-        print(f"[DEBUG AUTH] Authenticated user: {username}")
     elif not SINGLE_USER_MODE and request.path.startswith('/sso/login'):
         # Do not allow provisioning during the SSO login redirect itself,
         # as it happens *before* current_user is set for the *next* request.
@@ -3297,7 +3290,6 @@ def load_global_request_context():
         # Fallback for unauthenticated multi-user or authenticated single-user.
         username = "guest_user"
         g.is_guest = True
-        print(f"[DEBUG AUTH] Unauthenticated, using guest_user")
 
     if not username:
         g.db_user = None

@@ -30,7 +30,28 @@ SINGLE_USER_MODE = config('SINGLE_USER_MODE', default='True') == 'True'
 SENTRY_DSN = config('SENTRY_DSN', default='')
 
 # --- Keys & external config ---
-SECRET_KEY = config('SECRET_KEY', default=secrets.token_hex(32))
+def _get_or_create_secret_key():
+    """Get SECRET_KEY from env, or generate and persist a stable key."""
+    # 1. Check environment variable first
+    env_key = config('SECRET_KEY', default='')
+    if env_key:
+        return env_key
+    
+    # 2. Check for persisted key file
+    key_file = os.path.join(INSTANCE_PATH, '.secret_key')
+    if os.path.exists(key_file):
+        with open(key_file, 'r') as f:
+            return f.read().strip()
+    
+    # 3. Generate new key and persist it
+    new_key = secrets.token_hex(32)
+    os.makedirs(INSTANCE_PATH, exist_ok=True)
+    with open(key_file, 'w') as f:
+        f.write(new_key)
+    print(f"[CONFIG] Generated new SECRET_KEY and saved to {key_file}")
+    return new_key
+
+SECRET_KEY = _get_or_create_secret_key()
 STELLARIUM_ERROR_MESSAGE = os.getenv("STELLARIUM_ERROR_MESSAGE")
 NOVA_CATALOG_URL = config('NOVA_CATALOG_URL', default='')
 
