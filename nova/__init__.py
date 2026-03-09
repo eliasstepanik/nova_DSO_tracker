@@ -3071,14 +3071,18 @@ login_manager.login_view = 'core.login'
 
 @login_manager.user_loader
 def load_user(user_id):
+    print(f"[DEBUG user_loader] Called with user_id={user_id}")
     db_sess = SessionLocal()
     try:
         user = db_sess.query(DbUser).filter_by(id=int(user_id)).first()
         if user:
-            # Detach from session so it remains usable after session closes
             db_sess.expunge(user)
+            print(f"[DEBUG user_loader] Found user: {user.username}")
+        else:
+            print(f"[DEBUG user_loader] No user found for id={user_id}")
         return user
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG user_loader] Exception: {e}")
         return None
     finally:
         db_sess.close()
@@ -7487,10 +7491,12 @@ def login():
                 if not user.active:
                     flash("Account is deactivated.", "error")
                     return render_template('login.html')
-                db_sess.expunge(user)  # Detach before login_user so object stays valid after session close
-                login_user(user)
+                db_sess.expunge(user)
+                print(f"[DEBUG login] Calling login_user for user.id={user.id}, username={user.username}")
+                login_user(user, remember=True)
+                print(f"[DEBUG login] After login_user, session={dict(session)}")
                 record_login()
-                session.modified = True  # Force session save before redirect
+                session.modified = True
                 flash("Logged in successfully!", "success")
 
                 next_page = request.form.get('next')
