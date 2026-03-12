@@ -3136,10 +3136,6 @@ def cleanup_db_session(exception=None):
     SessionLocal.remove()
 
 
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'core.login'
-
 if not SINGLE_USER_MODE:
     # --- Sentry Error Reporting (multi-user mode only) ---
     if SENTRY_DSN:
