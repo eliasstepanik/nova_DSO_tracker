@@ -16377,7 +16377,8 @@ if not SINGLE_USER_MODE:
         db_sess = SessionLocal()
         try:
             users = db_sess.query(DbUser).order_by(DbUser.id).all()
-            return render_template("admin_users.html", users=users)
+            roles = db_sess.query(Role).order_by(Role.name).all()
+            return render_template("admin_users.html", users=users, roles=roles)
         finally:
             db_sess.close()
 
