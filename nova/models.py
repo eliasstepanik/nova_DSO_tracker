@@ -2,25 +2,37 @@ import os
 from datetime import datetime
 
 from sqlalchemy import (
-    create_engine, Column, Integer, Float, String, Boolean, Date, DateTime,
-    ForeignKey, Text, UniqueConstraint
+    create_engine,
+    Column,
+    Integer,
+    Float,
+    String,
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- DB path setup ---
 INSTANCE_PATH = os.environ.get("INSTANCE_PATH") or os.path.join(os.getcwd(), "instance")
 os.makedirs(INSTANCE_PATH, exist_ok=True)
-DB_PATH = os.path.join(INSTANCE_PATH, 'app.db')
+DB_PATH = os.path.join(INSTANCE_PATH, "app.db")
 DB_URI = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DB_URI, echo=False, future=True)
-SessionLocal = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False))
+SessionLocal = scoped_session(
+    sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+)
 Base = declarative_base()
 
 
 # --- MODELS ------------------------------------------------------------------
 class DbUser(Base):
-    __tablename__ = 'users'
+    __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False, index=True)
     password_hash = Column(String(256), nullable=True)
@@ -42,61 +54,103 @@ class DbUser(Base):
     def get_id(self):
         return str(self.id)
 
+    def set_password(self, password):
+        """Hash and set the user's password."""
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """Verify password against stored hash."""
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
+
     # --- Relationships ---
-    locations = relationship("Location", back_populates="user", cascade="all, delete-orphan")
-    objects = relationship("AstroObject", foreign_keys="AstroObject.user_id", back_populates="user",
-                           cascade="all, delete-orphan")
-    saved_views = relationship("SavedView", foreign_keys="SavedView.user_id", back_populates="user",
-                               cascade="all, delete-orphan")
-    components = relationship("Component", foreign_keys="Component.user_id", back_populates="user",
-                              cascade="all, delete-orphan")
+    locations = relationship(
+        "Location", back_populates="user", cascade="all, delete-orphan"
+    )
+    objects = relationship(
+        "AstroObject",
+        foreign_keys="AstroObject.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    saved_views = relationship(
+        "SavedView",
+        foreign_keys="SavedView.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    components = relationship(
+        "Component",
+        foreign_keys="Component.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     rigs = relationship("Rig", back_populates="user", cascade="all, delete-orphan")
-    sessions = relationship("JournalSession", back_populates="user", cascade="all, delete-orphan")
-    ui_prefs = relationship("UiPref", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    sessions = relationship(
+        "JournalSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    ui_prefs = relationship(
+        "UiPref", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
     # --- This is the line we added to fix the test ---
-    projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    projects = relationship(
+        "Project", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Project(Base):
-    __tablename__ = 'projects'
+    __tablename__ = "projects"
     # The project_id from YAML will be our primary key. It's a string (UUID).
     id = Column(String(64), primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name = Column(String(256), nullable=False)
 
     # --- NEW FIELDS FOR PROJECT DETAIL PAGE ---
-    target_object_name = Column(String(256), nullable=True)  # Primary object for the project
-    description_notes = Column(Text, nullable=True)  # Project-level story/learnings (rich text)
+    target_object_name = Column(
+        String(256), nullable=True
+    )  # Primary object for the project
+    description_notes = Column(
+        Text, nullable=True
+    )  # Project-level story/learnings (rich text)
     framing_notes = Column(Text, nullable=True)  # Framing/composition notes (rich text)
     processing_notes = Column(Text, nullable=True)  # Processing workflow (rich text)
-    final_image_file = Column(String(256), nullable=True)  # Path to the final image (similar to session_image_file)
+    final_image_file = Column(
+        String(256), nullable=True
+    )  # Path to the final image (similar to session_image_file)
     goals = Column(Text, nullable=True)  # Goals and completion status (rich text)
-    status = Column(String(32), nullable=False, default="In Progress")  # e.g., 'In Progress', 'Completed', 'On Hold'
+    status = Column(
+        String(32), nullable=False, default="In Progress"
+    )  # e.g., 'In Progress', 'Completed', 'On Hold'
 
     user = relationship("DbUser", back_populates="projects")
     sessions = relationship("JournalSession", back_populates="project")
 
-    __table_args__ = (UniqueConstraint('user_id', 'name', name='uq_user_project_name'),)
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_project_name"),)
+
 
 class SavedView(Base):
-    __tablename__ = 'saved_views'
+    __tablename__ = "saved_views"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name = Column(String(256), nullable=False)
-    description = Column(String(500), nullable=True) # <-- New
+    description = Column(String(500), nullable=True)  # <-- New
     settings_json = Column(Text, nullable=False)
-    is_shared = Column(Boolean, nullable=False, default=False, index=True) # <-- New
-    original_user_id = Column(Integer, ForeignKey('users.id', ondelete="SET NULL"), nullable=True, index=True) # <-- New
-    original_item_id = Column(Integer, nullable=True, index=True) # <-- New
+    is_shared = Column(Boolean, nullable=False, default=False, index=True)  # <-- New
+    original_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )  # <-- New
+    original_item_id = Column(Integer, nullable=True, index=True)  # <-- New
     user = relationship("DbUser", foreign_keys=[user_id], back_populates="saved_views")
-    __table_args__ = (UniqueConstraint('user_id', 'name', name='uq_user_view_name'),)
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_view_name"),)
+
 
 class Location(Base):
-    __tablename__ = 'locations'
+    __tablename__ = "locations"
     id = Column(Integer, primary_key=True)
     stable_uid = Column(String(36), unique=True, nullable=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name = Column(String(128), nullable=False)
     lat = Column(Float, nullable=False)
     lon = Column(Float, nullable=False)
@@ -106,19 +160,25 @@ class Location(Base):
     active = Column(Boolean, nullable=False, default=True, index=True)
     comments = Column(String(500), nullable=True)
     user = relationship("DbUser", back_populates="locations")
-    horizon_points = relationship("HorizonPoint", back_populates="location", cascade="all, delete-orphan")
-    __table_args__ = (UniqueConstraint('user_id', 'name', name='uq_user_location_name'),)
+    horizon_points = relationship(
+        "HorizonPoint", back_populates="location", cascade="all, delete-orphan"
+    )
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_user_location_name"),
+    )
 
 
 class SavedFraming(Base):
-    __tablename__ = 'saved_framings'
+    __tablename__ = "saved_framings"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     object_name = Column(String(256), nullable=False)
 
     # Framing Data
-    rig_id = Column(Integer, ForeignKey('rigs.id', ondelete="SET NULL"), nullable=True)
-    rig_stable_uid = Column(String(36), nullable=True)  # Stable UID for cross-boundary resolution
+    rig_id = Column(Integer, ForeignKey("rigs.id", ondelete="SET NULL"), nullable=True)
+    rig_stable_uid = Column(
+        String(36), nullable=True
+    )  # Stable UID for cross-boundary resolution
     rig_name = Column(String(256), nullable=True)
     ra = Column(Float, nullable=True)
     dec = Column(Float, nullable=True)
@@ -146,20 +206,26 @@ class SavedFraming(Base):
     updated_at = Column(Date, default=datetime.utcnow)
 
     user = relationship("DbUser", backref="saved_framings")
-    __table_args__ = (UniqueConstraint('user_id', 'object_name', name='uq_user_object_framing'),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "object_name", name="uq_user_object_framing"),
+    )
+
 
 class HorizonPoint(Base):
-    __tablename__ = 'horizon_points'
+    __tablename__ = "horizon_points"
     id = Column(Integer, primary_key=True)
-    location_id = Column(Integer, ForeignKey('locations.id', ondelete="CASCADE"), index=True)
+    location_id = Column(
+        Integer, ForeignKey("locations.id", ondelete="CASCADE"), index=True
+    )
     az_deg = Column(Float, nullable=False)
     alt_min_deg = Column(Float, nullable=False)
     location = relationship("Location", back_populates="horizon_points")
 
+
 class AstroObject(Base):
-    __tablename__ = 'astro_objects'
+    __tablename__ = "astro_objects"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     object_name = Column(String(256), nullable=False, index=True)
     common_name = Column(String(256), nullable=True)
     ra_hours = Column(Float, nullable=False)
@@ -173,12 +239,16 @@ class AstroObject(Base):
     project_name = Column(Text, nullable=True)
     is_shared = Column(Boolean, nullable=False, default=False, index=True)
     shared_notes = Column(Text, nullable=True)
-    original_user_id = Column(Integer, ForeignKey('users.id', ondelete="SET NULL"), nullable=True, index=True)
+    original_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     user = relationship("DbUser", foreign_keys=[user_id], back_populates="objects")
     original_item_id = Column(Integer, nullable=True, index=True)
     catalog_sources = Column(Text, nullable=True)
     catalog_info = Column(Text, nullable=True)
-    enabled = Column(Boolean, nullable=False, default=True, index=True)  # New State Flag
+    enabled = Column(
+        Boolean, nullable=False, default=True, index=True
+    )  # New State Flag
 
     # Curation & Attribution
     image_url = Column(String(500), nullable=True)
@@ -189,7 +259,9 @@ class AstroObject(Base):
     description_credit = Column(String(256), nullable=True)
     description_source_link = Column(String(500), nullable=True)
 
-    __table_args__ = (UniqueConstraint('user_id', 'object_name', name='uq_user_object'),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "object_name", name="uq_user_object"),
+    )
 
     def to_dict(self):
         """Converts this object into a YAML-safe dictionary."""
@@ -204,43 +276,40 @@ class AstroObject(Base):
             "Magnitude": self.magnitude,
             "Size": self.size,
             "SB": self.sb,
-
             # Compatibility aliases
             "Name": self.common_name,
             "RA": self.ra_hours,
             "DEC": self.dec_deg,
-
             # Project fields
             "ActiveProject": self.active_project,
             "Project": self.project_name,
-
             # Sharing fields
             "is_shared": self.is_shared,
             "shared_notes": self.shared_notes,
             "original_user_id": self.original_user_id,
             "original_item_id": self.original_item_id,
-
             # Catalog metadata
             "catalog_sources": self.catalog_sources,
             "catalog_info": self.catalog_info,
             "enabled": self.enabled,
-
             # Curation & Attribution (Exposed to API)
             "image_url": self.image_url,
             "image_credit": self.image_credit,
             "image_source_link": self.image_source_link,
             "description_text": self.description_text,
             "description_credit": self.description_credit,
-            "description_source_link": self.description_source_link
+            "description_source_link": self.description_source_link,
         }
 
 
 class Component(Base):
-    __tablename__ = 'components'
+    __tablename__ = "components"
     id = Column(Integer, primary_key=True)
     stable_uid = Column(String(36), unique=True, nullable=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
-    kind = Column(String(32), nullable=False)  # 'telescope' | 'camera' | 'reducer_extender'
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind = Column(
+        String(32), nullable=False
+    )  # 'telescope' | 'camera' | 'reducer_extender'
     name = Column(String(256), nullable=False)
     aperture_mm = Column(Float, nullable=True)
     focal_length_mm = Column(Float, nullable=True)
@@ -249,29 +318,43 @@ class Component(Base):
     pixel_size_um = Column(Float, nullable=True)
     factor = Column(Float, nullable=True)
     is_shared = Column(Boolean, nullable=False, default=False, index=True)
-    original_user_id = Column(Integer, ForeignKey('users.id', ondelete="SET NULL"), nullable=True, index=True)
+    original_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     original_item_id = Column(Integer, nullable=True, index=True)
     user = relationship("DbUser", foreign_keys=[user_id], back_populates="components")
-    rigs_using = relationship("Rig", back_populates="telescope", foreign_keys="Rig.telescope_id")
+    rigs_using = relationship(
+        "Rig", back_populates="telescope", foreign_keys="Rig.telescope_id"
+    )
 
 
 class Rig(Base):
-    __tablename__ = 'rigs'
+    __tablename__ = "rigs"
     id = Column(Integer, primary_key=True)
     stable_uid = Column(String(36), unique=True, nullable=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     rig_name = Column(String(256), nullable=False, index=True)
-    telescope_id = Column(Integer, ForeignKey('components.id', ondelete="SET NULL"), nullable=True)
-    camera_id = Column(Integer, ForeignKey('components.id', ondelete="SET NULL"), nullable=True)
-    reducer_extender_id = Column(Integer, ForeignKey('components.id', ondelete="SET NULL"), nullable=True)
+    telescope_id = Column(
+        Integer, ForeignKey("components.id", ondelete="SET NULL"), nullable=True
+    )
+    camera_id = Column(
+        Integer, ForeignKey("components.id", ondelete="SET NULL"), nullable=True
+    )
+    reducer_extender_id = Column(
+        Integer, ForeignKey("components.id", ondelete="SET NULL"), nullable=True
+    )
     effective_focal_length = Column(Float, nullable=True)
     f_ratio = Column(Float, nullable=True)
     image_scale = Column(Float, nullable=True)
     fov_w_arcmin = Column(Float, nullable=True)
     # Guide optics fields (for dither pixel recommendations) - FK references to Component model
-    guide_telescope_id = Column(Integer, ForeignKey('components.id', ondelete="SET NULL"), nullable=True)
-    guide_camera_id = Column(Integer, ForeignKey('components.id', ondelete="SET NULL"), nullable=True)
-    guide_is_oag = Column(Boolean, nullable=False, default=False, server_default='0')
+    guide_telescope_id = Column(
+        Integer, ForeignKey("components.id", ondelete="SET NULL"), nullable=True
+    )
+    guide_camera_id = Column(
+        Integer, ForeignKey("components.id", ondelete="SET NULL"), nullable=True
+    )
+    guide_is_oag = Column(Boolean, nullable=False, default=False, server_default="0")
     # Relationships
     user = relationship("DbUser", back_populates="rigs")
     telescope = relationship("Component", foreign_keys=[telescope_id])
@@ -279,14 +362,19 @@ class Rig(Base):
     reducer_extender = relationship("Component", foreign_keys=[reducer_extender_id])
     guide_telescope = relationship("Component", foreign_keys=[guide_telescope_id])
     guide_camera = relationship("Component", foreign_keys=[guide_camera_id])
-    __table_args__ = (UniqueConstraint('user_id', 'rig_name', name='uq_user_rig_name'),)
+    __table_args__ = (UniqueConstraint("user_id", "rig_name", name="uq_user_rig_name"),)
 
 
 class JournalSession(Base):
-    __tablename__ = 'journal_sessions'
+    __tablename__ = "journal_sessions"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
-    project_id = Column(String(64), ForeignKey('projects.id', ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    project_id = Column(
+        String(64),
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     date_utc = Column(Date, nullable=False)
     object_name = Column(String(256), nullable=True)
     notes = Column(Text, nullable=True)
@@ -323,27 +411,31 @@ class JournalSession(Base):
 
     number_of_subs_light = Column(Integer, nullable=True)
     exposure_time_per_sub_sec = Column(Integer, nullable=True)
-    filter_L_subs = Column(Integer, nullable=True);
+    filter_L_subs = Column(Integer, nullable=True)
     filter_L_exposure_sec = Column(Integer, nullable=True)
-    filter_R_subs = Column(Integer, nullable=True);
+    filter_R_subs = Column(Integer, nullable=True)
     filter_R_exposure_sec = Column(Integer, nullable=True)
-    filter_G_subs = Column(Integer, nullable=True);
+    filter_G_subs = Column(Integer, nullable=True)
     filter_G_exposure_sec = Column(Integer, nullable=True)
-    filter_B_subs = Column(Integer, nullable=True);
+    filter_B_subs = Column(Integer, nullable=True)
     filter_B_exposure_sec = Column(Integer, nullable=True)
-    filter_Ha_subs = Column(Integer, nullable=True);
+    filter_Ha_subs = Column(Integer, nullable=True)
     filter_Ha_exposure_sec = Column(Integer, nullable=True)
-    filter_OIII_subs = Column(Integer, nullable=True);
+    filter_OIII_subs = Column(Integer, nullable=True)
     filter_OIII_exposure_sec = Column(Integer, nullable=True)
-    filter_SII_subs = Column(Integer, nullable=True);
+    filter_SII_subs = Column(Integer, nullable=True)
     filter_SII_exposure_sec = Column(Integer, nullable=True)
 
     # --- Custom filter data (JSON string for user-defined filters) ---
     custom_filter_data = Column(Text, nullable=True)
 
     # --- NEW: Rig Snapshot Fields ---
-    rig_id_snapshot = Column(Integer, ForeignKey('rigs.id', ondelete="SET NULL"), nullable=True) # <-- ADDED THIS
-    rig_stable_uid_snapshot = Column(String(36), nullable=True)  # Stable UID for cross-boundary resolution
+    rig_id_snapshot = Column(
+        Integer, ForeignKey("rigs.id", ondelete="SET NULL"), nullable=True
+    )  # <-- ADDED THIS
+    rig_stable_uid_snapshot = Column(
+        String(36), nullable=True
+    )  # Stable UID for cross-boundary resolution
     rig_name_snapshot = Column(String(256), nullable=True)
     rig_efl_snapshot = Column(Float, nullable=True)
     rig_fr_snapshot = Column(Float, nullable=True)
@@ -358,18 +450,19 @@ class JournalSession(Base):
     external_id = Column(String(64), nullable=True, index=True)
 
     # --- Log content stored directly in database ---
-    asiair_log_content = Column(Text, nullable=True)     # Raw ASIAIR autorun log
-    phd2_log_content = Column(Text, nullable=True)       # Raw PHD2 guide log
-    log_analysis_cache = Column(Text, nullable=True)     # Cached JSON from parse-once
+    asiair_log_content = Column(Text, nullable=True)  # Raw ASIAIR autorun log
+    phd2_log_content = Column(Text, nullable=True)  # Raw PHD2 guide log
+    log_analysis_cache = Column(Text, nullable=True)  # Cached JSON from parse-once
 
     user = relationship("DbUser", back_populates="sessions")
     project = relationship("Project", back_populates="sessions")
-    rig_snapshot = relationship("Rig", foreign_keys=[rig_id_snapshot]) # <-- ADDED THIS
+    rig_snapshot = relationship("Rig", foreign_keys=[rig_id_snapshot])  # <-- ADDED THIS
+
 
 class UiPref(Base):
-    __tablename__ = 'ui_prefs'
+    __tablename__ = "ui_prefs"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     json_blob = Column(Text, nullable=True)
     user = relationship("DbUser", back_populates="ui_prefs")
 
@@ -377,7 +470,8 @@ class UiPref(Base):
 # --- ANALYTICS MODELS (GDPR-compliant, no PII) ---
 class AnalyticsEvent(Base):
     """Anonymous feature usage tracking. No user identifiers stored."""
-    __tablename__ = 'analytics_event'
+
+    __tablename__ = "analytics_event"
     event_name = Column(String(64), primary_key=True)
     date = Column(Date, primary_key=True)
     count = Column(Integer, nullable=False, default=0)
@@ -385,33 +479,42 @@ class AnalyticsEvent(Base):
 
 class AnalyticsLogin(Base):
     """Anonymous login activity tracking. No user identifiers stored."""
-    __tablename__ = 'analytics_login'
+
+    __tablename__ = "analytics_login"
     date = Column(Date, primary_key=True)
     login_count = Column(Integer, nullable=False, default=0)
 
 
 class UserCustomFilter(Base):
     """User-defined custom filters for journal sessions."""
-    __tablename__ = 'user_custom_filters'
+
+    __tablename__ = "user_custom_filters"
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     filter_key = Column(String(64), nullable=False)
     filter_label = Column(String(64), nullable=False)
     created_at = Column(Date, default=datetime.utcnow)
 
-    __table_args__ = (UniqueConstraint('user_id', 'filter_key', name='uq_user_filter_key'),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "filter_key", name="uq_user_filter_key"),
+    )
 
 
 class ApiKey(Base):
     """API keys for programmatic access. Supports both single-user and multi-user modes."""
-    __tablename__ = 'api_keys'
+
+    __tablename__ = "api_keys"
     id = Column(Integer, primary_key=True)
     key_hash = Column(String(128), nullable=False, unique=True, index=True)
     key_prefix = Column(String(12), nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
-    name = Column(String(128), nullable=False, default='default')
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name = Column(String(128), nullable=False, default="default")
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     last_used_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 
-    db_user = relationship('DbUser', backref='api_keys')
+    db_user = relationship("DbUser", backref="api_keys")
