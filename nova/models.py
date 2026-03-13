@@ -132,8 +132,20 @@ class DbUser(Base):
         return any(r.name == role_name for r in self.roles)
 
     def has_permission(self, perm_name: str) -> bool:
-        """Check if user has a specific permission through any of their roles."""
-        return any(p.name == perm_name for role in self.roles for p in role.permissions)
+        """Check if user has a specific permission through any of their roles.
+
+        Admin role users have all permissions (wildcard).
+        """
+        # Admin role has all permissions
+        if self.has_role("admin"):
+            return True
+        try:
+            return any(
+                p.name == perm_name for role in self.roles for p in role.permissions
+            )
+        except Exception:
+            # Handle DetachedInstanceError if session is closed
+            return False
 
     @property
     def is_admin(self) -> bool:

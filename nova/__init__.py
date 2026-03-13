@@ -61,6 +61,7 @@ from flask import (
     make_response,
     Response,
     stream_with_context,
+    abort,
 )
 from flask_login import (
     LoginManager,
@@ -3885,10 +3886,10 @@ def load_user(user_id):
     print(f"[user_loader] Called with user_id={user_id}")
     db_sess = SessionLocal()
     try:
-        # Eagerly load roles to avoid DetachedInstanceError when accessing is_admin
+        # Eagerly load roles AND permissions to avoid DetachedInstanceError
         user = (
             db_sess.query(DbUser)
-            .options(joinedload(DbUser.roles))
+            .options(joinedload(DbUser.roles).joinedload(Role.permissions))
             .filter_by(id=int(user_id))
             .first()
         )
