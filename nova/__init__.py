@@ -93,7 +93,6 @@ iers.conf.auto_download = False
 iers.conf.auto_max_age = None  # Allow using old IERS data without errors
 
 from flask_wtf.csrf import CSRFProtect
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text, func
 from sqlalchemy.orm import selectinload
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -3954,72 +3953,26 @@ def cleanup_db_session(exception=None):
     SessionLocal.remove()
 
 
-if not SINGLE_USER_MODE:
-    # --- Sentry Error Reporting (multi-user mode only) ---
-    if SENTRY_DSN:
-        import sentry_sdk
-        from sentry_sdk.integrations.flask import FlaskIntegration
-        from sentry_sdk.integrations.logging import LoggingIntegration
+# --- Sentry Error Reporting (multi-user mode only) ---
+if not SINGLE_USER_MODE and SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
 
-        sentry_sdk.init(
-            dsn=SENTRY_DSN,
-            integrations=[
-                FlaskIntegration(),
-                LoggingIntegration(
-                    level=logging.WARNING,  # Capture WARNING+ as breadcrumbs
-                    event_level=logging.ERROR,  # Send events on ERROR+
-                ),
-            ],
-            release=APP_VERSION,
-        )
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            FlaskIntegration(),
+            LoggingIntegration(
+                level=logging.WARNING,  # Capture WARNING+ as breadcrumbs
+                event_level=logging.ERROR,  # Send events on ERROR+
+            ),
+        ],
+        release=APP_VERSION,
+    )
 
-    # --- MULTI-USER MODE SETUP ---
-    db_path = os.path.join(INSTANCE_PATH, "users.db")
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    db = SQLAlchemy(app)
-
-    class User(UserMixin, db.Model):
-        id = db.Column(db.Integer, primary_key=True)
-        username = db.Column(db.String(80), unique=True, nullable=False)
-        password_hash = db.Column(db.String(256), nullable=False)
-
-        # NEW: user is active by default
-        active = db.Column(db.Boolean, nullable=False, default=True)
-
-        def set_password(self, password):
-            self.password_hash = generate_password_hash(password)
-
-        def check_password(self, password):
-            return check_password_hash(self.password_hash, password)
-
-        @property
-        def is_active(self):
-            # Flask-Login uses this to decide if the user can authenticate
-            return bool(self.active)
-
-    # Ensure DB tables exist on first run / after switching modes
-    def ensure_db_initialized():
-        with app.app_context():
-            try:
-                # Probe the user table; if it fails, create all tables
-                db.session.execute(text("SELECT 1 FROM user LIMIT 1"))
-            except Exception:
-                try:
-                    print("[MIGRATION] User table missing. Creating all tables...")
-                    db.create_all()
-                    print("✅ [MIGRATION] Database initialized.")
-                except Exception as e:
-                    print(f"❌ [MIGRATION] Failed to initialize DB: {e}")
-
-    # Run the DB initialization once at startup
-    ensure_db_initialized()
-else:
-    # --- SINGLE-USER MODE SETUP ---
-    class User(UserMixin):
-        def __init__(self, user_id, username):
-            self.id = user_id
-            self.username = username
+# NOTE: The dead "User" model and "users.db" setup was removed.
+# All authentication now uses DbUser from app.db via SessionLocal.
 
 
 @app.before_request
@@ -9404,21 +9357,25 @@ def sso_login():
         if not username:
             raise jwt.InvalidTokenError("Token is missing username.")
 
-        # Find the user in the Nova database
-        user = db.session.scalar(db.select(User).where(User.username == username))
-
-        if user and user.is_active:
-            login_user(user)  # Log the user in using Flask-Login
-            record_login()
-            session.modified = True  # Force session save before redirect
-            flash(f"Welcome back, {user.username}!", "success")
-            return redirect(url_for("core.index"), code=303)
-        else:
-            flash(
-                f"SSO Error: User '{username}' not found or is disabled in Nova.",
-                "error",
-            )
-            return redirect(url_for("core.login"))
+        # Find the user in the Nova database (using DbUser from app.db)
+        db_sess = SessionLocal()
+        try:
+            user = db_sess.query(DbUser).filter_by(username=username).first()
+            if user and user.is_active:
+                db_sess.expunge(user)
+                login_user(user)  # Log the user in using Flask-Login
+                record_login()
+                session.modified = True  # Force session save before redirect
+                flash(f"Welcome back, {user.username}!", "success")
+                return redirect(url_for("core.index"), code=303)
+            else:
+                flash(
+                    f"SSO Error: User '{username}' not found or is disabled in Nova.",
+                    "error",
+                )
+                return redirect(url_for("core.login"))
+        finally:
+            db_sess.close()
 
     except jwt.ExpiredSignatureError:
         flash(
