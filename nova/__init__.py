@@ -166,6 +166,10 @@ from nova.models import (
     UiPref,
     UserCustomFilter,
     ApiKey,
+    Role,
+    Permission,
+    roles_users,
+    roles_permissions,
 )
 from nova.config import (
     APP_VERSION,
