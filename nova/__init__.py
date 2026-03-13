@@ -94,7 +94,7 @@ iers.conf.auto_max_age = None  # Allow using old IERS data without errors
 
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import text, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
 import getpass
 import jwt
@@ -3885,7 +3885,13 @@ def load_user(user_id):
     print(f"[user_loader] Called with user_id={user_id}")
     db_sess = SessionLocal()
     try:
-        user = db_sess.query(DbUser).filter_by(id=int(user_id)).first()
+        # Eagerly load roles to avoid DetachedInstanceError when accessing is_admin
+        user = (
+            db_sess.query(DbUser)
+            .options(joinedload(DbUser.roles))
+            .filter_by(id=int(user_id))
+            .first()
+        )
         if user:
             db_sess.expunge(user)
             print(f"[user_loader] Found user: {user.username}")
