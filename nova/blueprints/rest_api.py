@@ -46,8 +46,11 @@ rest_api_bp = Blueprint("rest_api", __name__)
 
 
 def _db():
-    """Return a scoped SQLAlchemy session."""
-    return SessionLocal()
+    """Return the scoped SQLAlchemy session registry.
+
+    Call .remove() to release the session back to the pool.
+    """
+    return SessionLocal
 
 
 def _paginate(query):

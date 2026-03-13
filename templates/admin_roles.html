@@ -306,10 +306,10 @@
         apiFetch('/api/v1/admin/permissions')
       ]);
 
-      allRoles = rolesData.roles || [];
+      allRoles = (rolesData.data || rolesData).roles || [];
 
       // Index permissions
-      (permsData.permissions || []).forEach(p => {
+      ((permsData.data || permsData).permissions || []).forEach(p => {
         allPermsById[p.id] = p;
         permsByName[p.name] = p;
       });
@@ -388,7 +388,8 @@
 
     // Fetch this role's current permissions
     try {
-      const data = await apiFetch(`/api/v1/admin/roles/${role.id}`);
+      const rawData = await apiFetch(`/api/v1/admin/roles/${role.id}`);
+      const data = rawData.data || rawData;
       const rolePerms = data.permissions || [];
       originalPermSet = new Set(rolePerms.map(p => p.name));
 
@@ -574,7 +575,8 @@
     btnCreateRole.innerHTML = '<span class="spinner"></span>Creating…';
 
     try {
-      const data = await apiFetch('/api/v1/admin/roles', 'POST', { name, description: desc });
+      const rawData = await apiFetch('/api/v1/admin/roles', 'POST', { name, description: desc });
+      const data = rawData.data || rawData;
       const newRole = data.role || data;
       allRoles.push(newRole);
       renderRoleList();
