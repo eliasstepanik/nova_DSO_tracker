@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     UniqueConstraint,
+    Table,
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, scoped_session
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -30,6 +31,64 @@ SessionLocal = scoped_session(
 Base = declarative_base()
 
 
+# --- RBAC Join Tables --------------------------------------------------------
+roles_permissions = Table(
+    "roles_permissions",
+    Base.metadata,
+    Column(
+        "role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column(
+        "permission_id",
+        Integer,
+        ForeignKey("permissions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
+roles_users = Table(
+    "roles_users",
+    Base.metadata,
+    Column(
+        "user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    ),
+    Column(
+        "role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
+
+# --- RBAC Models -------------------------------------------------------------
+class Permission(Base):
+    """System permission for RBAC."""
+
+    __tablename__ = "permissions"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False, index=True)
+    description = Column(String(256), nullable=True)
+
+    def __repr__(self):
+        return f"<Permission {self.name}>"
+
+
+class Role(Base):
+    """Role with associated permissions for RBAC."""
+
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False, index=True)
+    description = Column(String(256), nullable=True)
+    is_system = Column(Boolean, nullable=False, default=False)
+
+    permissions = relationship(
+        "Permission", secondary=roles_permissions, backref="roles"
+    )
+    users = relationship("DbUser", secondary=roles_users, back_populates="roles")
+
+    def __repr__(self):
+        return f"<Role {self.name}>"
+
+
 # --- MODELS ------------------------------------------------------------------
 class DbUser(Base):
     __tablename__ = "users"
@@ -37,6 +96,9 @@ class DbUser(Base):
     username = Column(String(80), unique=True, nullable=False, index=True)
     password_hash = Column(String(256), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+
+    # --- RBAC ---
+    roles = relationship("Role", secondary=roles_users, back_populates="users")
 
     # --- Flask-Login interface ---
     @property
@@ -63,6 +125,20 @@ class DbUser(Base):
         if not self.password_hash:
             return False
         return check_password_hash(self.password_hash, password)
+
+    # --- RBAC Helpers ---
+    def has_role(self, role_name: str) -> bool:
+        """Check if user has a specific role."""
+        return any(r.name == role_name for r in self.roles)
+
+    def has_permission(self, perm_name: str) -> bool:
+        """Check if user has a specific permission through any of their roles."""
+        return any(p.name == perm_name for role in self.roles for p in role.permissions)
+
+    @property
+    def is_admin(self) -> bool:
+        """Check if user has admin role."""
+        return self.has_role("admin")
 
     # --- Relationships ---
     locations = relationship(
