@@ -33,6 +33,8 @@ from nova.models import (
     UserCustomFilter,
     ApiKey,
     UiPref,
+    Role,
+    Permission,
 )
 from nova.config import SINGLE_USER_MODE
 
@@ -2365,6 +2367,328 @@ def fork_shared_view(view_id):
         db.commit()
         db.refresh(forked)
         return _ok(_serialize_saved_view(forked), status=201)
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+# ──────────────────────────────────────────────────────────
+#  ROLE / PERMISSION CRUD API (Admin only)
+# ──────────────────────────────────────────────────────────
+
+
+def _serialize_permission(p):
+    """Serialize a Permission object."""
+    return {"id": p.id, "name": p.name, "description": p.description}
+
+
+def _serialize_role(r):
+    """Serialize a Role object with its permissions."""
+    return {
+        "id": r.id,
+        "name": r.name,
+        "description": r.description,
+        "is_system": r.is_system,
+        "permissions": [_serialize_permission(p) for p in r.permissions],
+    }
+
+
+# ── Permissions (read-only for now) ─────────────────────────
+
+
+@rest_api_bp.route("/admin/permissions", methods=["GET"])
+@api_key_or_login_required
+@api_admin_required
+def admin_list_permissions():
+    """List all permissions in the system."""
+    db = _db()
+    try:
+        perms = db.query(Permission).order_by(Permission.name).all()
+        return _ok({"permissions": [_serialize_permission(p) for p in perms]})
+    finally:
+        db.remove()
+
+
+# ── Roles CRUD ──────────────────────────────────────────────
+
+
+@rest_api_bp.route("/admin/roles", methods=["GET"])
+@api_key_or_login_required
+@api_admin_required
+def admin_list_roles():
+    """List all roles in the system."""
+    db = _db()
+    try:
+        roles = db.query(Role).order_by(Role.name).all()
+        return _ok({"roles": [_serialize_role(r) for r in roles]})
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/admin/roles", methods=["POST"])
+@api_key_or_login_required
+@api_admin_required
+def admin_create_role():
+    """Create a new role."""
+    db = _db()
+    try:
+        data = request.get_json() or {}
+        name = data.get("name", "").strip()
+        if not name:
+            return _err("Role name is required", 400)
+
+        # Check for duplicate name
+        existing = db.query(Role).filter_by(name=name).first()
+        if existing:
+            return _err(f"Role '{name}' already exists", 409)
+
+        role = Role(
+            name=name,
+            description=data.get("description", ""),
+            is_system=False,  # User-created roles are never system roles
+        )
+        db.add(role)
+        db.commit()
+        db.refresh(role)
+        return _ok(_serialize_role(role), status=201)
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/admin/roles/<int:role_id>", methods=["GET"])
+@api_key_or_login_required
+@api_admin_required
+def admin_get_role(role_id):
+    """Get a specific role by ID."""
+    db = _db()
+    try:
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+        return _ok(_serialize_role(role))
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/admin/roles/<int:role_id>", methods=["PUT"])
+@api_key_or_login_required
+@api_admin_required
+def admin_update_role(role_id):
+    """Update a role's name or description."""
+    db = _db()
+    try:
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+
+        data = request.get_json() or {}
+
+        if "name" in data:
+            new_name = data["name"].strip()
+            if not new_name:
+                return _err("Role name cannot be empty", 400)
+            # Check for duplicate name (excluding self)
+            dup = (
+                db.query(Role).filter(Role.name == new_name, Role.id != role_id).first()
+            )
+            if dup:
+                return _err(f"Role '{new_name}' already exists", 409)
+            role.name = new_name
+
+        if "description" in data:
+            role.description = data["description"]
+
+        db.commit()
+        db.refresh(role)
+        return _ok(_serialize_role(role))
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/admin/roles/<int:role_id>", methods=["DELETE"])
+@api_key_or_login_required
+@api_admin_required
+def admin_delete_role(role_id):
+    """Delete a role. System roles cannot be deleted."""
+    db = _db()
+    try:
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+
+        if role.is_system:
+            return _err(f"Cannot delete system role '{role.name}'", 403)
+
+        db.delete(role)
+        db.commit()
+        return _ok({"message": f"Role '{role.name}' deleted"})
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+# ── Role-Permission Assignment ──────────────────────────────
+
+
+@rest_api_bp.route(
+    "/admin/roles/<int:role_id>/permissions/<int:perm_id>", methods=["POST"]
+)
+@api_key_or_login_required
+@api_admin_required
+def admin_assign_permission_to_role(role_id, perm_id):
+    """Assign a permission to a role."""
+    db = _db()
+    try:
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+
+        perm = db.query(Permission).filter_by(id=perm_id).first()
+        if not perm:
+            return _err("Permission not found", 404)
+
+        if perm in role.permissions:
+            return _err(f"Role already has permission '{perm.name}'", 409)
+
+        role.permissions.append(perm)
+        db.commit()
+        db.refresh(role)
+        return _ok(_serialize_role(role))
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route(
+    "/admin/roles/<int:role_id>/permissions/<int:perm_id>", methods=["DELETE"]
+)
+@api_key_or_login_required
+@api_admin_required
+def admin_revoke_permission_from_role(role_id, perm_id):
+    """Revoke a permission from a role."""
+    db = _db()
+    try:
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+
+        perm = db.query(Permission).filter_by(id=perm_id).first()
+        if not perm:
+            return _err("Permission not found", 404)
+
+        if perm not in role.permissions:
+            return _err(f"Role does not have permission '{perm.name}'", 404)
+
+        role.permissions.remove(perm)
+        db.commit()
+        db.refresh(role)
+        return _ok(_serialize_role(role))
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+# ── User-Role Assignment ────────────────────────────────────
+
+
+@rest_api_bp.route("/admin/users/<int:user_id>/roles", methods=["GET"])
+@api_key_or_login_required
+@api_admin_required
+def admin_get_user_roles(user_id):
+    """Get all roles assigned to a user."""
+    db = _db()
+    try:
+        user = db.query(DbUser).filter_by(id=user_id).first()
+        if not user:
+            return _err("User not found", 404)
+        return _ok(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "roles": [_serialize_role(r) for r in user.roles],
+            }
+        )
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/admin/users/<int:user_id>/roles/<int:role_id>", methods=["POST"])
+@api_key_or_login_required
+@api_admin_required
+def admin_assign_role_to_user(user_id, role_id):
+    """Assign a role to a user."""
+    db = _db()
+    try:
+        user = db.query(DbUser).filter_by(id=user_id).first()
+        if not user:
+            return _err("User not found", 404)
+
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+
+        if role in user.roles:
+            return _err(f"User already has role '{role.name}'", 409)
+
+        user.roles.append(role)
+        db.commit()
+        db.refresh(user)
+        return _ok(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "roles": [_serialize_role(r) for r in user.roles],
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/admin/users/<int:user_id>/roles/<int:role_id>", methods=["DELETE"])
+@api_key_or_login_required
+@api_admin_required
+def admin_revoke_role_from_user(user_id, role_id):
+    """Revoke a role from a user."""
+    db = _db()
+    try:
+        user = db.query(DbUser).filter_by(id=user_id).first()
+        if not user:
+            return _err("User not found", 404)
+
+        role = db.query(Role).filter_by(id=role_id).first()
+        if not role:
+            return _err("Role not found", 404)
+
+        if role not in user.roles:
+            return _err(f"User does not have role '{role.name}'", 404)
+
+        user.roles.remove(role)
+        db.commit()
+        db.refresh(user)
+        return _ok(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "roles": [_serialize_role(r) for r in user.roles],
+            }
+        )
     except Exception as e:
         db.rollback()
         return _err(str(e), 500)
