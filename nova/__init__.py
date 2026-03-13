@@ -685,10 +685,10 @@ def get_or_create_db_user(db_session, username: str) -> "DbUser":
             raise e
 
     if user:
-        # REPAIR: If this is the guest_user but they have NO locations (broken state), re-seed from YAML.
-        if username == "guest_user":
-            loc_count = db_session.query(Location).filter_by(user_id=user.id).count()
-            if loc_count == 0:
+        # REPAIR: If user has NO locations (broken state / wasn't seeded), seed them now.
+        loc_count = db_session.query(Location).filter_by(user_id=user.id).count()
+        if loc_count == 0:
+            if username == "guest_user":
                 if not hasattr(get_or_create_db_user, "_guest_seed_failed"):
                     print(
                         f"[PROVISIONING] Detected empty guest_user. Attempting repair from YAML..."
@@ -703,6 +703,14 @@ def get_or_create_db_user(db_session, username: str) -> "DbUser":
                         print(
                             f"[PROVISIONING] Repair failed. Will not retry until restart."
                         )
+            else:
+                # Regular user without locations - seed from guest_user template
+                print(
+                    f"[PROVISIONING] Detected empty user '{username}'. Seeding from guest_user template..."
+                )
+                _seed_user_from_guest_data(db_session, user)
+                db_session.commit()
+                print(f"[PROVISIONING] User '{username}' seeded successfully.")
         return user
 
     # --- New User Provisioning Path ---
@@ -16404,6 +16412,9 @@ if not SINGLE_USER_MODE:
             user = DbUser(username=username)
             user.set_password(password)
             db_sess.add(user)
+            db_sess.flush()  # Get user.id before seeding
+            # Seed with default data (locations, objects, etc.)
+            _seed_user_from_guest_data(db_sess, user)
             db_sess.commit()
             flash(f"User '{username}' created successfully.", "success")
             return redirect(url_for("tools.admin_users"))
