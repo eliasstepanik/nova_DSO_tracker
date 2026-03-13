@@ -17,6 +17,7 @@ from nova.api_auth import (
     hash_api_key,
     key_prefix as _key_prefix,
 )
+from nova.permissions import api_admin_required
 from nova.models import (
     SessionLocal,
     DbUser,
@@ -1721,6 +1722,7 @@ def update_preferences():
     finally:
         db.remove()
 
+
 # ──────────────────────────────────────────────────────────
 #  STELLARIUM SETTINGS  (per-user, stored in UiPref blob)
 # ──────────────────────────────────────────────────────────
@@ -1736,6 +1738,7 @@ _STELLARIUM_DEFAULTS = {
 def _get_stellarium_settings(db, user_id):
     """Extract stellarium settings from UiPref json_blob."""
     import json as _json
+
     pref = db.query(UiPref).filter(UiPref.user_id == user_id).first()
     if pref and pref.json_blob:
         try:
@@ -1765,6 +1768,7 @@ def get_stellarium_settings():
 @api_key_or_login_required
 def update_stellarium_settings():
     import json as _json
+
     data = request.get_json(silent=True) or {}
     host = data.get("host", "").strip()
     port = data.get("port")
@@ -1809,6 +1813,7 @@ def update_stellarium_settings():
     finally:
         db.remove()
 
+
 # ──────────────────────────────────────────────────────────
 #  AUTH  (register / login — multi-user mode only)
 # ──────────────────────────────────────────────────────────
@@ -1851,11 +1856,14 @@ def register():
         raw_key = create_api_key(db, user.id, name="default")
         db.commit()
 
-        return _ok({
-            "user_id": user.id,
-            "username": user.username,
-            "api_key": raw_key,
-        }, status=201)
+        return _ok(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "api_key": raw_key,
+            },
+            status=201,
+        )
     except Exception as e:
         db.rollback()
         return _err(str(e), 500)
@@ -1895,11 +1903,13 @@ def login():
         raw_key = create_api_key(db, user.id, name="login")
         db.commit()
 
-        return _ok({
-            "user_id": user.id,
-            "username": user.username,
-            "api_key": raw_key,
-        })
+        return _ok(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "api_key": raw_key,
+            }
+        )
     except Exception as e:
         db.rollback()
         return _err(str(e), 500)
@@ -2006,6 +2016,7 @@ def revoke_api_key(key_id):
 
 @rest_api_bp.route("/admin/users", methods=["GET"])
 @api_key_required
+@api_admin_required
 def admin_list_users():
     """List all users (admin only, multi-user mode)."""
     if SINGLE_USER_MODE:
@@ -2019,6 +2030,7 @@ def admin_list_users():
                     "id": u.id,
                     "username": u.username,
                     "active": u.active,
+                    "roles": [r.name for r in u.roles],
                 }
                 for u in users
             ]

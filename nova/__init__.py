@@ -170,6 +170,7 @@ from nova.models import (
     roles_users,
     roles_permissions,
 )
+from nova.permissions import admin_required
 from nova.config import (
     APP_VERSION,
     TEMPLATE_DIR,
@@ -15479,26 +15480,34 @@ if not SINGLE_USER_MODE:
     @app.cli.command("init-db")
     def init_db_command():
         """Creates database tables and the first admin user."""
-        # Create the tables based on your db.Model classes
-        db.create_all()
+        # Create the tables using the engine from nova.models
+        Base.metadata.create_all(engine)
         print("✅ Initialized the database tables.")
 
-        # Check if a user already exists to prevent running this twice
-        if db.session.scalar(db.select(User).limit(1)):
-            print("-> Database already contains users. Skipping admin creation.")
-            return
+        db_sess = SessionLocal()
+        try:
+            # Check if a user already exists to prevent running this twice
+            if db_sess.query(DbUser).first():
+                print("-> Database already contains users. Skipping admin creation.")
+                return
 
-        # If no users exist, prompt to create the first one
-        print("--- Create First Admin User ---")
-        username = input("Enter username for admin: ")
-        password = getpass.getpass("Enter password for admin: ")
+            # If no users exist, prompt to create the first one
+            print("--- Create First Admin User ---")
+            username = input("Enter username for admin: ")
+            password = getpass.getpass("Enter password for admin: ")
 
-        # Create the user object and save it to the database
-        admin_user = User(username=username)
-        admin_user.set_password(password)
-        db.session.add(admin_user)
-        db.session.commit()
-        print(f"✅ Admin user '{username}' created successfully!")
+            # Create the user object and save it to the database
+            admin_user = DbUser(username=username)
+            admin_user.set_password(password)
+            # Assign admin role if Role table exists
+            admin_role = db_sess.query(Role).filter_by(name="admin").first()
+            if admin_role:
+                admin_user.roles.append(admin_role)
+            db_sess.add(admin_user)
+            db_sess.commit()
+            print(f"✅ Admin user '{username}' created successfully!")
+        finally:
+            db_sess.close()
 
     @app.cli.command("add-user")
     def add_user_command():
@@ -15506,86 +15515,108 @@ if not SINGLE_USER_MODE:
         print("--- Create New User ---")
         username = input("Enter username: ")
 
-        # Check if username already exists
-        existing = db.session.scalar(db.select(User).where(User.username == username))
-        if existing:
-            print(f"❌ User '{username}' already exists.")
-            return
+        db_sess = SessionLocal()
+        try:
+            # Check if username already exists
+            if db_sess.query(DbUser).filter_by(username=username).first():
+                print(f"❌ User '{username}' already exists.")
+                return
 
-        password = getpass.getpass("Enter password: ")
-        confirm = getpass.getpass("Confirm password: ")
-        if password != confirm:
-            print("❌ Passwords do not match.")
-            return
+            password = getpass.getpass("Enter password: ")
+            confirm = getpass.getpass("Confirm password: ")
+            if password != confirm:
+                print("❌ Passwords do not match.")
+                return
 
-        user = User(username=username)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        print(f"✅ User '{username}' created successfully!")
+            user = DbUser(username=username)
+            user.set_password(password)
+            # Assign default 'user' role if Role table exists
+            user_role = db_sess.query(Role).filter_by(name="user").first()
+            if user_role:
+                user.roles.append(user_role)
+            db_sess.add(user)
+            db_sess.commit()
+            print(f"✅ User '{username}' created successfully!")
+        finally:
+            db_sess.close()
 
     @app.cli.command("rename-user")
     def rename_user_command():
         """Renames an existing user account."""
         old_name = input("Current username: ")
-        user = db.session.scalar(db.select(User).where(User.username == old_name))
-        if not user:
-            print(f"❌ User '{old_name}' not found.")
-            return
 
-        new_name = input("New username: ").strip()
-        if not new_name:
-            print("❌ Username cannot be empty.")
-            return
+        db_sess = SessionLocal()
+        try:
+            user = db_sess.query(DbUser).filter_by(username=old_name).first()
+            if not user:
+                print(f"❌ User '{old_name}' not found.")
+                return
 
-        if db.session.scalar(db.select(User).where(User.username == new_name)):
-            print(f"❌ Username '{new_name}' is already taken.")
-            return
+            new_name = input("New username: ").strip()
+            if not new_name:
+                print("❌ Username cannot be empty.")
+                return
 
-        user.username = new_name
-        db.session.commit()
-        print(f"✅ User renamed from '{old_name}' to '{new_name}'.")
+            if db_sess.query(DbUser).filter_by(username=new_name).first():
+                print(f"❌ Username '{new_name}' is already taken.")
+                return
+
+            user.username = new_name
+            db_sess.commit()
+            print(f"✅ User renamed from '{old_name}' to '{new_name}'.")
+        finally:
+            db_sess.close()
 
     @app.cli.command("change-password")
     def change_password_command():
         """Changes the password for an existing user."""
         username = input("Username: ")
-        user = db.session.scalar(db.select(User).where(User.username == username))
-        if not user:
-            print(f"❌ User '{username}' not found.")
-            return
 
-        password = getpass.getpass("New password: ")
-        confirm = getpass.getpass("Confirm new password: ")
-        if password != confirm:
-            print("❌ Passwords do not match.")
-            return
+        db_sess = SessionLocal()
+        try:
+            user = db_sess.query(DbUser).filter_by(username=username).first()
+            if not user:
+                print(f"❌ User '{username}' not found.")
+                return
 
-        user.set_password(password)
-        db.session.commit()
-        print(f"✅ Password changed for '{username}'.")
+            password = getpass.getpass("New password: ")
+            confirm = getpass.getpass("Confirm new password: ")
+            if password != confirm:
+                print("❌ Passwords do not match.")
+                return
+
+            user.set_password(password)
+            db_sess.commit()
+            print(f"✅ Password changed for '{username}'.")
+        finally:
+            db_sess.close()
 
     @app.cli.command("delete-user")
     def delete_user_command():
-        """Deletes a user account from the credentials database."""
+        """Deletes a user account from the database."""
         username = input("Username to delete: ")
-        if username == "admin":
-            print("❌ Cannot delete the admin account.")
-            return
 
-        user = db.session.scalar(db.select(User).where(User.username == username))
-        if not user:
-            print(f"❌ User '{username}' not found.")
-            return
+        db_sess = SessionLocal()
+        try:
+            user = db_sess.query(DbUser).filter_by(username=username).first()
+            if not user:
+                print(f"❌ User '{username}' not found.")
+                return
 
-        confirm = input(f"Are you sure you want to delete '{username}'? (yes/no): ")
-        if confirm.lower() != "yes":
-            print("Cancelled.")
-            return
+            if user.is_admin:
+                print("❌ Cannot delete an admin account.")
+                return
 
-        db.session.delete(user)
-        db.session.commit()
-        print(f"✅ User '{username}' deleted from credentials database.")
+            confirm = input(f"Are you sure you want to delete '{username}'? (yes/no): ")
+            if confirm.lower() != "yes":
+                print("Cancelled.")
+                return
+
+            db_sess.delete(user)
+            db_sess.commit()
+            print(f"✅ User '{username}' deleted.")
+        finally:
+            db_sess.close()
 
     @app.cli.command("migrate-yaml-to-db")
     def migrate_yaml_command():
@@ -16215,11 +16246,11 @@ def upload_editor_image():
 @tools_bp.route("/tools/export/<username>", methods=["GET"])
 @login_required
 def export_yaml_for_user(username):
-    # Only allow exporting self in multi-user; admin can export anyone (basic guard, adjust as needed)
+    # Only allow exporting self in multi-user; admin can export anyone
     if (
         not SINGLE_USER_MODE
         and current_user.username != username
-        and current_user.username != "admin"
+        and not current_user.is_admin
     ):
         flash("Not authorized to export another user's data.", "error")
         return redirect(url_for("core.index"))
@@ -16270,7 +16301,7 @@ def import_yaml_for_user():
     if (
         not SINGLE_USER_MODE
         and current_user.username != username
-        and current_user.username != "admin"
+        and not current_user.is_admin
     ):
         flash("Not authorized to import for another user.", "error")
         return redirect(url_for("core.index"))
@@ -16318,10 +16349,8 @@ def import_yaml_for_user():
 # Admin-only repair route for deduplication and backfill
 @tools_bp.route("/tools/repair_db", methods=["POST"])
 @login_required
+@admin_required
 def repair_db_now():
-    if not SINGLE_USER_MODE and current_user.username != "admin":
-        flash("Not authorized.", "error")
-        return redirect(url_for("core.index"))
     try:
         repair_journals(dry_run=False)
         flash("Database repair completed.", "success")
@@ -16343,10 +16372,8 @@ if not SINGLE_USER_MODE:
 
     @tools_bp.route("/admin/users")
     @login_required
+    @admin_required
     def admin_users():
-        if current_user.username != "admin":
-            flash("Not authorized.", "error")
-            return redirect(url_for("core.index"))
         db_sess = SessionLocal()
         try:
             users = db_sess.query(DbUser).order_by(DbUser.id).all()
@@ -16356,10 +16383,8 @@ if not SINGLE_USER_MODE:
 
     @tools_bp.route("/admin/users/create", methods=["POST"])
     @login_required
+    @admin_required
     def admin_create_user():
-        if current_user.username != "admin":
-            flash("Not authorized.", "error")
-            return redirect(url_for("core.index"))
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         if not username or not password:
@@ -16384,18 +16409,16 @@ if not SINGLE_USER_MODE:
 
     @tools_bp.route("/admin/users/<int:user_id>/toggle", methods=["POST"])
     @login_required
+    @admin_required
     def admin_toggle_user(user_id):
-        if current_user.username != "admin":
-            flash("Not authorized.", "error")
-            return redirect(url_for("core.index"))
         db_sess = SessionLocal()
         try:
             user = db_sess.query(DbUser).get(user_id)
             if not user:
                 flash("User not found.", "error")
                 return redirect(url_for("tools.admin_users"))
-            if user.username == "admin":
-                flash("Cannot deactivate the admin account.", "error")
+            if user.is_admin:
+                flash("Cannot deactivate an admin account.", "error")
                 return redirect(url_for("tools.admin_users"))
             user.active = not user.active
             db_sess.commit()
@@ -16407,10 +16430,8 @@ if not SINGLE_USER_MODE:
 
     @tools_bp.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
     @login_required
+    @admin_required
     def admin_reset_password(user_id):
-        if current_user.username != "admin":
-            flash("Not authorized.", "error")
-            return redirect(url_for("core.index"))
         db_sess = SessionLocal()
         try:
             user = db_sess.query(DbUser).get(user_id)
@@ -16430,18 +16451,16 @@ if not SINGLE_USER_MODE:
 
     @tools_bp.route("/admin/users/<int:user_id>/delete", methods=["POST"])
     @login_required
+    @admin_required
     def admin_delete_user(user_id):
-        if current_user.username != "admin":
-            flash("Not authorized.", "error")
-            return redirect(url_for("core.index"))
         db_sess = SessionLocal()
         try:
             user = db_sess.query(DbUser).get(user_id)
             if not user:
                 flash("User not found.", "error")
                 return redirect(url_for("tools.admin_users"))
-            if user.username == "admin":
-                flash("Cannot delete the admin account.", "error")
+            if user.is_admin:
+                flash("Cannot delete an admin account.", "error")
                 return redirect(url_for("tools.admin_users"))
             uname = user.username
             db_sess.delete(user)
