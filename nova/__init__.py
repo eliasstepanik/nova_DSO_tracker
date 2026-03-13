@@ -170,7 +170,7 @@ from nova.models import (
     roles_users,
     roles_permissions,
 )
-from nova.permissions import admin_required
+from nova.permissions import admin_required, permission_required, PERMISSION_CATEGORIES
 from nova.config import (
     APP_VERSION,
     TEMPLATE_DIR,
@@ -4839,6 +4839,7 @@ def _parse_asiair_log_content(content):
 
 @api_bp.route("/api/parse_asiair_log", methods=["POST"])
 @login_required
+@permission_required("journal.edit")
 def api_parse_asiair_log():
     if "file" not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
@@ -4868,6 +4869,7 @@ def api_parse_asiair_log():
 
 @api_bp.route("/api/session/<int:session_id>/log-analysis")
 @login_required
+@permission_required("journal.view")
 def get_session_log_analysis(session_id):
     """
     Return structured log data for Chart.js visualization with parse-once caching.
@@ -4934,6 +4936,7 @@ def get_session_log_analysis(session_id):
 
 
 @api_bp.route("/api/get_plot_data/<path:object_name>")
+@permission_required("objects.view")
 def get_plot_data(object_name):
     load_full_astro_context()  # Ensures g context is loaded if needed
     """
@@ -5170,6 +5173,7 @@ def get_plot_data(object_name):
 
 
 @api_bp.route("/api/get_observable_objects")
+@permission_required("objects.view")
 def get_observable_objects():
     """
     Returns active objects observable tonight from the current location.
@@ -5400,6 +5404,7 @@ def get_observable_objects():
 
 
 @api_bp.route("/api/get_weather_forecast")
+@permission_required("dashboard.weather")
 def get_weather_forecast_api():
     """
     API endpoint to exclusively fetch and return processed weather forecast data.
@@ -7172,6 +7177,7 @@ if FIRST_RUN_ENV_CREATED:
 
 # --- Telemetry diagnostics route ---
 @api_bp.route("/telemetry/debug", methods=["GET"])
+@permission_required("settings.view")
 def telemetry_debug():
     # Report current telemetry config and last attempt
     try:
@@ -7242,6 +7248,7 @@ def _handle_project_image_upload(
 
 @projects_bp.route("/project/<string:project_id>", methods=["GET", "POST"])
 @login_required
+@permission_required("projects.view")
 def project_detail(project_id):
     load_full_astro_context()  # Ensures g.db_user is loaded
     username = "default" if SINGLE_USER_MODE else current_user.username
@@ -7379,6 +7386,7 @@ def project_detail(project_id):
 
 
 @core_bp.route("/get_outlook_data")
+@permission_required("dashboard.analytics")
 def get_outlook_data():
     load_full_astro_context()
     # --- Check for guest user first ---
@@ -7505,6 +7513,7 @@ def get_outlook_data():
 
 
 @api_bp.route("/api/latest_version")
+@permission_required("settings.view")
 def get_latest_version():
     """An API endpoint for the frontend to check for updates."""
     return jsonify(LATEST_VERSION_INFO)
@@ -7512,6 +7521,7 @@ def get_latest_version():
 
 @tools_bp.route("/add_component", methods=["POST"])
 @login_required
+@permission_required("equipment.create")
 def add_component():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -7558,6 +7568,7 @@ def add_component():
 
 @tools_bp.route("/update_component", methods=["POST"])
 @login_required
+@permission_required("equipment.edit")
 def update_component():
     db = get_db()
     try:
@@ -7600,6 +7611,7 @@ def update_component():
 
 @tools_bp.route("/add_rig", methods=["POST"])
 @login_required
+@permission_required("equipment.create")
 def add_rig():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -7683,6 +7695,7 @@ def add_rig():
 
 @tools_bp.route("/delete_component", methods=["POST"])
 @login_required
+@permission_required("equipment.delete")
 def delete_component():
     db = get_db()
     try:
@@ -7713,6 +7726,7 @@ def delete_component():
 
 @tools_bp.route("/delete_rig", methods=["POST"])
 @login_required
+@permission_required("equipment.delete")
 def delete_rig():
     db = get_db()
     try:
@@ -7729,6 +7743,7 @@ def delete_rig():
 
 @tools_bp.route("/set_rig_sort_preference", methods=["POST"])
 @login_required
+@permission_required("equipment.edit")
 def set_rig_sort_preference():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -7757,6 +7772,7 @@ def set_rig_sort_preference():
 
 @tools_bp.route("/get_rig_data")
 @login_required
+@permission_required("equipment.view")
 def get_rig_data():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -7913,6 +7929,7 @@ def get_rig_data():
 
 @journal_bp.route("/journal")
 @login_required
+@permission_required("journal.view")
 def journal_list_view():
     load_full_astro_context()
     db = get_db()
@@ -7950,6 +7967,7 @@ def journal_list_view():
 
 @journal_bp.route("/journal/add", methods=["GET", "POST"])
 @login_required
+@permission_required("journal.create")
 def journal_add():
     load_full_astro_context()
     username = "default" if SINGLE_USER_MODE else current_user.username
@@ -8284,6 +8302,7 @@ def journal_add():
 
 @journal_bp.route("/journal/edit/<int:session_id>", methods=["GET", "POST"])
 @login_required
+@permission_required("journal.edit")
 def journal_edit(session_id):
     load_full_astro_context()
     username = "default" if SINGLE_USER_MODE else current_user.username
@@ -8654,6 +8673,7 @@ def journal_edit(session_id):
 
 @journal_bp.route("/journal/add_project", methods=["POST"])
 @login_required
+@permission_required("projects.create")
 def add_project_from_journal():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -8747,6 +8767,7 @@ def add_project_from_journal():
 
 @journal_bp.route("/journal/duplicate/<int:session_id>", methods=["POST"])
 @login_required
+@permission_required("journal.create")
 def journal_duplicate(session_id):
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -8807,6 +8828,7 @@ def journal_duplicate(session_id):
 
 @journal_bp.route("/journal/delete/<int:session_id>", methods=["POST"])
 @login_required
+@permission_required("journal.delete")
 def journal_delete(session_id):
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -8847,6 +8869,7 @@ def journal_delete(session_id):
 # =============================================================================
 @core_bp.route("/api/journal/custom-filters", methods=["POST"])
 @login_required
+@permission_required("journal.edit")
 def add_custom_filter():
     """Add a new custom filter definition for the current user."""
     import re
@@ -8877,6 +8900,7 @@ def add_custom_filter():
 
 @core_bp.route("/api/journal/custom-filters/<filter_key>", methods=["DELETE"])
 @login_required
+@permission_required("journal.edit")
 def delete_custom_filter(filter_key):
     """Delete a custom filter definition for the current user."""
     db = get_db()
@@ -8925,6 +8949,7 @@ def _cleanup_orphan_projects(journal_data):
 
 @journal_bp.route("/journal/report_page/<int:session_id>")
 @login_required
+@permission_required("journal.view")
 def show_journal_report_page(session_id):
     """
     Renders the HTML version of the report page.
@@ -9138,6 +9163,7 @@ def show_journal_report_page(session_id):
 
 @journal_bp.route("/journal/add_for_target/<path:object_name>", methods=["GET", "POST"])
 @login_required
+@permission_required("journal.create")
 def journal_add_for_target(object_name):
     if request.method == "POST":
         # If the form is submitted, redirect the POST request to the main journal_add function
@@ -9285,6 +9311,7 @@ def get_static_nightly_values(
 
 
 @core_bp.route("/trigger_update", methods=["POST"])
+@permission_required("settings.edit")
 def trigger_update():
     try:
         script_path = os.path.join(os.path.dirname(__file__), "updater.py")
@@ -9396,6 +9423,7 @@ def sso_login():
 
 
 @core_bp.route("/proxy_focus", methods=["POST"])
+@permission_required("settings.stellarium")
 def proxy_focus():
     payload = request.form
     try:
@@ -9497,6 +9525,7 @@ def telemetry_startup_ping_once():
 
 @core_bp.route("/set_location", methods=["POST"])
 @login_required
+@permission_required("locations.set_active")
 def set_location_api():
     data = request.get_json()
     location_name = data.get("location", "").strip() if data.get("location") else ""
@@ -9550,6 +9579,7 @@ def set_location_api():
 
 
 @core_bp.route("/favicon.ico")
+@permission_required("settings.view")
 def favicon():
     return send_from_directory(
         "static", "favicon.ico", mimetype="image/vnd.microsoft.icon"
@@ -9563,6 +9593,7 @@ def inject_version():
 
 @tools_bp.route("/download_config")
 @login_required
+@permission_required("data.export")
 def download_config():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -9686,6 +9717,7 @@ def download_config():
 
 @tools_bp.route("/download_journal")
 @login_required
+@permission_required("journal.export")
 def download_journal():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -9860,6 +9892,7 @@ def validate_journal_data(journal_data):
 
 @tools_bp.route("/import_journal", methods=["POST"])
 @login_required
+@permission_required("data.import")
 def import_journal():
     if "file" not in request.files:
         flash("No file selected for journal import.", "error")
@@ -9941,6 +9974,7 @@ def import_journal():
 
 @tools_bp.route("/import_config", methods=["POST"])
 @login_required
+@permission_required("data.import")
 def import_config():
     if SINGLE_USER_MODE:
         username = "default"
@@ -10096,6 +10130,7 @@ def import_config():
 
 @tools_bp.route("/import_catalog/<pack_id>", methods=["POST"])
 @login_required
+@permission_required("objects.create")
 def import_catalog(pack_id):
     """Import a server-side catalog pack into the current user's object library.
 
@@ -10364,6 +10399,7 @@ def get_ra_dec(object_name, objects_map=None):  # <-- ADD objects_map=None param
 
 
 @core_bp.route("/get_locations")
+@permission_required("locations.view")
 def get_locations():
     """Returns only ACTIVE locations for the main UI dropdown and the user's default."""
     # Determine username based on mode and authentication status
@@ -10414,6 +10450,7 @@ def get_locations():
 
 @core_bp.route("/search_object", methods=["POST"])
 @login_required
+@permission_required("objects.view")
 def search_object():
     # Expect JSON input with the object identifier.
     object_name = request.json.get("object")
@@ -10621,6 +10658,7 @@ def check_and_fill_object_data(config_data):
 
 @core_bp.route("/fetch_object_details", methods=["POST"])
 @login_required
+@permission_required("objects.view")
 def fetch_object_details():
     """
     Fetch exactly Type, Magnitude, Size, SB for one object
@@ -10673,6 +10711,7 @@ def _parse_float_from_request(value, field_name="field"):
 
 @core_bp.route("/confirm_object", methods=["POST"])
 @login_required
+@permission_required("objects.create")
 def confirm_object():
     req = request.get_json()
     username = "default" if SINGLE_USER_MODE else current_user.username
@@ -10788,6 +10827,7 @@ def confirm_object():
 
 @api_bp.route("/api/update_object", methods=["POST"])
 @login_required
+@permission_required("objects.edit")
 def update_object():
     """
     API endpoint to update a single AstroObject from the config form.
@@ -10851,6 +10891,7 @@ def update_object():
 
 @core_bp.route("/stream_fetch_details")
 @login_required
+@permission_required("objects.view")
 def stream_fetch_details():
     """
     Streams progress of fetching object details via Server-Sent Events (SSE).
@@ -10955,6 +10996,7 @@ def stream_fetch_details():
 
 @core_bp.route("/fetch_all_details", methods=["POST"])
 @login_required
+@permission_required("objects.view")
 def fetch_all_details():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -11018,6 +11060,7 @@ def fetch_all_details():
 
 
 @api_bp.route("/api/get_object_list")
+@permission_required("objects.view")
 def get_object_list():
     load_full_astro_context()
     """
@@ -11030,6 +11073,7 @@ def get_object_list():
 
 @api_bp.route("/api/journal/objects")
 @login_required
+@permission_required("journal.view")
 def get_journal_objects():
     """
     Returns a list of all objects that have journal sessions with any imaging data,
@@ -11160,6 +11204,7 @@ def get_journal_objects():
 
 @api_bp.route("/api/bulk_update_objects", methods=["POST"])
 @login_required
+@permission_required("objects.bulk_edit")
 def bulk_update_objects():
     data = request.get_json()
     action = data.get("action")  # 'enable', 'disable', 'delete'
@@ -11239,6 +11284,7 @@ def bulk_update_objects():
 
 @api_bp.route("/api/bulk_fetch_details", methods=["POST"])
 @login_required
+@permission_required("objects.view")
 def bulk_fetch_details():
     """Fetch missing details (type, magnitude, size, SB, constellation) for selected objects."""
     data = request.get_json()
@@ -11332,6 +11378,7 @@ def bulk_fetch_details():
 
 @api_bp.route("/api/find_duplicates")
 @login_required
+@permission_required("objects.merge")
 def find_duplicates():
     load_full_astro_context()
     user_id = g.db_user.id
@@ -11386,6 +11433,7 @@ def find_duplicates():
 
 @api_bp.route("/api/merge_objects", methods=["POST"])
 @login_required
+@permission_required("objects.merge")
 def merge_objects():
     data = request.get_json()
     keep_id = data.get("keep_id")
@@ -11484,12 +11532,14 @@ def merge_objects():
 
 
 @api_bp.route("/api/help/img/<path:filename>")
+@permission_required("settings.view")
 def get_help_image(filename):
     """Serves images located in the help_docs directory."""
     return send_from_directory(os.path.join(_project_root, "help_docs"), filename)
 
 
 @api_bp.route("/api/help/<topic_id>")
+@permission_required("settings.view")
 def get_help_content(topic_id):
     """
     Reads a markdown file from help_docs/, converts it to HTML, and returns it.
@@ -11523,6 +11573,7 @@ def get_help_content(topic_id):
 
 
 @api_bp.route("/api/get_object_data/<path:object_name>")
+@permission_required("objects.view")
 def get_object_data(object_name):
     # --- 1. Determine User (No change needed here) ---
     if SINGLE_USER_MODE:
@@ -11850,6 +11901,7 @@ def get_object_data(object_name):
 
 
 @api_bp.route("/api/get_desktop_data_batch")
+@permission_required("dashboard.view")
 def get_desktop_data_batch():
     # --- Manual Auth Check for Guest Support ---
     if not (
@@ -12183,6 +12235,7 @@ def get_desktop_data_batch():
 
 
 @core_bp.route("/")
+@permission_required("dashboard.view")
 def index():
     load_full_astro_context()
     if not (
@@ -12274,6 +12327,7 @@ def index():
 # =============================================================================
 @mobile_bp.route("/m/up_now")
 @login_required
+@permission_required("mobile.access")
 def mobile_up_now():
     """Renders the mobile 'Up Now' dashboard skeleton (data fetched via API)."""
     load_full_astro_context()
@@ -12283,6 +12337,7 @@ def mobile_up_now():
 
 @api_bp.route("/api/mobile_data_chunk")
 @login_required
+@permission_required("mobile.access")
 def api_mobile_data_chunk():
     """Fetches a specific slice of object data for the mobile progress bar."""
     load_full_astro_context()
@@ -12335,6 +12390,7 @@ def api_mobile_data_chunk():
 
 @mobile_bp.route("/m/location")
 @login_required
+@permission_required("mobile.access")
 def mobile_location():
     """Renders the mobile location selector."""
     load_full_astro_context()  # <-- ADD THIS LINE
@@ -12348,6 +12404,7 @@ def mobile_location():
 @mobile_bp.route("/m")
 @mobile_bp.route("/m/add_object")
 @login_required
+@permission_required("mobile.access")
 def mobile_add_object():
     """Renders the mobile 'Add Object' page."""
     load_full_astro_context()  # <-- ADD THIS LINE
@@ -12357,6 +12414,7 @@ def mobile_add_object():
 
 @mobile_bp.route("/m/outlook")
 @login_required
+@permission_required("mobile.access")
 def mobile_outlook():
     """Renders the mobile 'Outlook' page."""
     load_full_astro_context()  # <-- ADD THIS LINE
@@ -12365,6 +12423,7 @@ def mobile_outlook():
 
 @mobile_bp.route("/m/edit_notes/<path:object_name>")
 @login_required
+@permission_required("mobile.access")
 def mobile_edit_notes(object_name):
     """Renders the mobile 'Edit Notes' page for a specific object."""
     load_full_astro_context()  # Ensures g.db_user is loaded
@@ -12607,6 +12666,7 @@ def get_all_mobile_up_now_data(user, location, user_prefs_dict, objects_list, db
 
 
 @core_bp.route("/sun_events")
+@permission_required("dashboard.sun_events")
 def sun_events():
     """
     API endpoint to calculate and return sun event times (dusk, dawn, etc.)
@@ -12709,6 +12769,7 @@ def sun_events():
 
 
 @api_bp.route("/telemetry/ping", methods=["POST"])
+@permission_required("settings.edit")
 def telemetry_ping():
     # Respect opt-out as usual
     try:
@@ -12763,6 +12824,7 @@ def telemetry_ping():
 
 @core_bp.route("/config_form", methods=["GET", "POST"])
 @login_required
+@permission_required("settings.edit")
 def config_form():
     load_full_astro_context()
     error = None
@@ -13136,6 +13198,7 @@ def config_form():
 
 @core_bp.route("/update_project", methods=["POST"])
 @login_required
+@permission_required("projects.edit")
 def update_project():
     data = request.get_json()
     object_name = data.get("object")
@@ -13185,6 +13248,7 @@ def update_project():
 
 @core_bp.route("/update_project_active", methods=["POST"])
 @login_required
+@permission_required("projects.edit")
 def update_project_active():
     data = request.get_json()
     object_name = data.get("object")
@@ -13221,6 +13285,7 @@ def get_object_list_from_config():
 
 
 @api_bp.route("/api/get_moon_data")
+@permission_required("dashboard.view")
 def get_moon_data_for_session():
     # --- Manual Auth Check for Guest Support ---
     if not (
@@ -13338,6 +13403,7 @@ def get_moon_data_for_session():
 
 
 @core_bp.route("/graph_dashboard/<path:object_name>")
+@permission_required("dashboard.view")
 def graph_dashboard(object_name):
     # --- 1. Determine User (No change) ---
     if not (
@@ -14100,6 +14166,7 @@ def graph_dashboard(object_name):
 
 
 @core_bp.route("/get_date_info/<path:object_name>")
+@permission_required("dashboard.analytics")
 def get_date_info(object_name):
     load_full_astro_context()
     tz = pytz.timezone(g.tz_name)
@@ -14168,6 +14235,7 @@ def get_date_info(object_name):
 
 
 @core_bp.route("/get_imaging_opportunities/<path:object_name>")
+@permission_required("dashboard.analytics")
 def get_imaging_opportunities(object_name):
     load_full_astro_context()
     # Load object RA/DEC (this uses 'g' context correctly)
@@ -14373,6 +14441,7 @@ def get_imaging_opportunities(object_name):
 
 @projects_bp.route("/project/report_page/<string:project_id>")
 @login_required
+@permission_required("projects.report")
 def show_project_report_page(project_id):
     from nova.log_parser import parse_asiair_log, parse_phd2_log
 
@@ -14539,6 +14608,7 @@ def show_project_report_page(project_id):
 
 @projects_bp.route("/project/delete/<string:project_id>", methods=["POST"])
 @login_required
+@permission_required("projects.delete")
 def delete_project(project_id):
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -14588,6 +14658,7 @@ def delete_project(project_id):
 
 
 @core_bp.route("/generate_ics/<object_name>")
+@permission_required("data.export")
 def generate_ics(object_name):
     # --- 1. Get parameters from the URL query string ---
     date_str = request.args.get("date")
@@ -14684,6 +14755,7 @@ def generate_ics(object_name):
 
 @tools_bp.route("/download_rig_config")
 @login_required
+@permission_required("data.export")
 def download_rig_config():
     username = "default" if SINGLE_USER_MODE else current_user.username
     db = get_db()
@@ -14815,6 +14887,7 @@ def download_rig_config():
 
 @tools_bp.route("/download_journal_photos")
 @login_required
+@permission_required("data.export")
 def download_journal_photos():
     """
     Finds all journal images for the current user, creates a ZIP file in memory,
@@ -14863,6 +14936,7 @@ def download_journal_photos():
 
 @tools_bp.route("/import_journal_photos", methods=["POST"])
 @login_required
+@permission_required("data.import")
 def import_journal_photos():
     """
     Handles the upload of a ZIP archive and safely extracts its contents
@@ -14943,6 +15017,7 @@ def import_journal_photos():
 
 @api_bp.route("/api/get_saved_views")
 @login_required
+@permission_required("views.view")
 def get_saved_views():
     db = get_db()
     try:
@@ -14968,6 +15043,7 @@ def get_saved_views():
 
 @api_bp.route("/api/save_saved_view", methods=["POST"])
 @login_required
+@permission_required("views.create")
 def save_saved_view():
     db = get_db()
     try:
@@ -15025,6 +15101,7 @@ def save_saved_view():
 
 @api_bp.route("/api/delete_saved_view", methods=["POST"])
 @login_required
+@permission_required("views.delete")
 def delete_saved_view():
     db = get_db()
     try:
@@ -15053,6 +15130,7 @@ def delete_saved_view():
 
 @tools_bp.route("/import_rig_config", methods=["POST"])
 @login_required
+@permission_required("data.import")
 def import_rig_config():
     if "file" not in request.files:
         flash("No file selected for rigs import.", "error")
@@ -15118,6 +15196,7 @@ def import_rig_config():
 
 
 @api_bp.route("/api/get_monthly_plot_data/<path:object_name>")
+@permission_required("dashboard.analytics")
 def get_monthly_plot_data(object_name):
     load_full_astro_context()
     # This function provides data for the monthly chart view.
@@ -15159,6 +15238,7 @@ def get_monthly_plot_data(object_name):
 
 
 @api_bp.route("/api/get_yearly_heatmap_chunk")
+@permission_required("dashboard.analytics")
 def get_yearly_heatmap_chunk():
     # --- Manual Auth Check for Guest Support ---
     if not (
@@ -15381,6 +15461,7 @@ def get_yearly_heatmap_chunk():
 # ANALYTICS DASHBOARD ROUTE
 # =============================================================================
 @core_bp.route("/analytics")
+@permission_required("dashboard.analytics")
 def analytics_dashboard():
     """
     Protected analytics dashboard showing feature usage and login activity.
@@ -15518,18 +15599,7 @@ if not SINGLE_USER_MODE:
     @app.cli.command("seed-roles")
     def seed_roles_command():
         """Creates system roles and permissions for RBAC."""
-        SYSTEM_PERMISSIONS = [
-            ("admin.users.view", "View all users"),
-            ("admin.users.manage", "Create/edit/delete users"),
-            ("admin.roles.manage", "Create/edit/delete roles"),
-            ("admin.db.repair", "Run database repair tools"),
-            ("data.export.any", "Export any user data"),
-            ("data.import.any", "Import data for any user"),
-            ("shared.objects.view", "View shared DSO objects"),
-            ("shared.views.view", "View shared saved views"),
-            ("shared.components.view", "View shared equipment components"),
-            ("shared.objects.fork", "Copy shared items to own collection"),
-        ]
+        from nova.permissions import SYSTEM_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS
 
         db_sess = SessionLocal()
         try:
@@ -15539,7 +15609,7 @@ if not SINGLE_USER_MODE:
                 print(f"-> Found {existing_roles} existing roles. Skipping seed.")
                 return
 
-            # Create permissions
+            # Create all permissions from the central definition
             perms = {}
             for name, desc in SYSTEM_PERMISSIONS:
                 p = Permission(name=name, description=desc)
@@ -15555,20 +15625,18 @@ if not SINGLE_USER_MODE:
             admin_role.permissions = list(perms.values())
             db_sess.add(admin_role)
 
-            # Create user role with sharing permissions
+            # Create user role with standard permissions
             user_role = Role(name="user", description="Standard user", is_system=True)
-            user_role.permissions = [
-                perms["shared.objects.view"],
-                perms["shared.views.view"],
-                perms["shared.components.view"],
-                perms["shared.objects.fork"],
-            ]
+            user_perms = DEFAULT_ROLE_PERMISSIONS.get("user", [])
+            user_role.permissions = [perms[p] for p in user_perms if p in perms]
             db_sess.add(user_role)
 
-            # Create readonly role (no extra permissions)
+            # Create readonly role with view-only permissions
             readonly_role = Role(
                 name="readonly", description="Read-only access", is_system=True
             )
+            readonly_perms = DEFAULT_ROLE_PERMISSIONS.get("readonly", [])
+            readonly_role.permissions = [perms[p] for p in readonly_perms if p in perms]
             db_sess.add(readonly_role)
             db_sess.flush()
             print("✅ Created 3 system roles: admin, user, readonly.")
@@ -15784,6 +15852,7 @@ def seed_empty_users_command():
 
 
 @api_bp.route("/api/internal/provision_user", methods=["POST"])
+@permission_required("settings.edit")
 def provision_user():
     data = request.get_json()
     provided_key = request.headers.get("X-Api-Key")
@@ -15885,6 +15954,7 @@ def delete_user(username: str) -> bool:
 
 
 @api_bp.route("/api/internal/deprovision_user", methods=["POST"])
+@permission_required("settings.edit")
 def deprovision_user():
     api_key = request.headers.get("X-Api-Key")
     if api_key != os.environ.get("PROVISIONING_API_KEY"):
@@ -15915,6 +15985,7 @@ def deprovision_user():
 
 @core_bp.route("/uploads/<path:username>/<path:filename>")
 @login_required
+@permission_required("journal.view")
 def get_uploaded_image(username, filename):
     """
     Serve uploaded images.
@@ -15958,6 +16029,7 @@ def get_uploaded_image(username, filename):
 
 @api_bp.route("/api/get_shared_items")
 @login_required
+@permission_required("settings.view")
 def get_shared_items():
     if SINGLE_USER_MODE:
         return jsonify(
@@ -16102,6 +16174,7 @@ def get_shared_items():
 
 @api_bp.route("/api/import_item", methods=["POST"])
 @login_required
+@permission_required("settings.edit")
 def import_item():
     if SINGLE_USER_MODE:
         return jsonify(
@@ -16277,6 +16350,7 @@ def import_item():
 
 @tools_bp.route("/upload_editor_image", methods=["POST"])
 @login_required
+@permission_required("journal.edit")
 def upload_editor_image():
     """
     Handles file uploads from the Trix editor.
@@ -16332,6 +16406,7 @@ def upload_editor_image():
 # --- YAML Portability Routes -----------------------------------------------
 @tools_bp.route("/tools/export/<username>", methods=["GET"])
 @login_required
+@permission_required("data.export")
 def export_yaml_for_user(username):
     # Only allow exporting self in multi-user; admin can export anyone
     if (
@@ -16370,6 +16445,7 @@ def export_yaml_for_user(username):
 
 @tools_bp.route("/tools/import", methods=["POST"])
 @login_required
+@permission_required("data.import")
 def import_yaml_for_user():
     """
     Expect multipart form-data with fields:
@@ -16557,6 +16633,15 @@ if not SINGLE_USER_MODE:
             return redirect(url_for("tools.admin_users"))
         finally:
             db_sess.close()
+
+    @tools_bp.route("/admin/roles")
+    @login_required
+    @admin_required
+    def admin_roles():
+        return render_template(
+            "admin_roles.html",
+            permission_categories=PERMISSION_CATEGORIES,
+        )
 
 
 @app.cli.command("repair-image-links")
@@ -16928,6 +17013,7 @@ def seed_guest_account_command():
 
 @api_bp.route("/api/save_framing", methods=["POST"])
 @login_required
+@permission_required("framings.create")
 def save_framing():
     db = get_db()
     try:
@@ -17017,6 +17103,7 @@ def save_framing():
 
 @api_bp.route("/api/get_framing/<path:object_name>")
 @login_required
+@permission_required("framings.view")
 def get_framing(object_name):
     db = get_db()
     try:
@@ -17072,6 +17159,7 @@ def get_framing(object_name):
 
 @api_bp.route("/api/delete_framing", methods=["POST"])
 @login_required
+@permission_required("framings.delete")
 def delete_framing():
     db = get_db()
     try:
@@ -17143,6 +17231,7 @@ def _format_dec_csv(dec_deg):
 
 @mobile_bp.route("/m/mosaic/<path:object_name>")
 @login_required
+@permission_required("mobile.access")
 def mobile_mosaic_view(object_name):
     """Mobile-optimized page to copy the ASIAIR mosaic plan string."""
     db = get_db()
@@ -17452,6 +17541,7 @@ def reset_guest_from_template_command():
 
 @journal_bp.route("/journal/download_csv/<string:item_type>/<string:item_id>")
 @login_required
+@permission_required("journal.export")
 def download_csv(item_type, item_id):
     db = get_db()
     try:

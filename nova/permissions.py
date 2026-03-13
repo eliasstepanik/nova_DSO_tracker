@@ -32,20 +32,288 @@ from flask_login import current_user
 # =============================================================================
 
 SYSTEM_PERMISSIONS = [
-    # Admin permissions
-    ("admin.users.view", "View all users"),
-    ("admin.users.manage", "Create, edit, and delete users"),
+    # =========================================================================
+    # Admin permissions (require admin role by default)
+    # =========================================================================
+    ("admin.users.view", "View all users in admin panel"),
+    ("admin.users.manage", "Create, edit, deactivate, and delete users"),
+    ("admin.roles.view", "View roles and their permissions"),
     ("admin.roles.manage", "Create, edit, and delete roles"),
     ("admin.db.repair", "Run database repair tools"),
-    # Data permissions
-    ("data.export.any", "Export any user's data"),
-    ("data.import.any", "Import data for any user"),
-    # Sharing permissions
-    ("shared.objects.view", "View shared DSO objects"),
-    ("shared.views.view", "View shared saved views"),
-    ("shared.components.view", "View shared equipment components"),
+    ("admin.data.export", "Export any user's data (admin export)"),
+    ("admin.data.import", "Import data for any user (admin import)"),
+    # =========================================================================
+    # Dashboard & Analytics
+    # =========================================================================
+    ("dashboard.view", "View main dashboard with DSO list"),
+    ("dashboard.analytics", "View analytics and graphs"),
+    ("dashboard.weather", "View weather forecast data"),
+    ("dashboard.sun_events", "View sun/twilight events"),
+    # =========================================================================
+    # DSO Objects
+    # =========================================================================
+    ("objects.view", "View DSO objects list and details"),
+    ("objects.create", "Add new DSO objects"),
+    ("objects.edit", "Edit DSO object details and notes"),
+    ("objects.delete", "Delete DSO objects"),
+    ("objects.bulk_edit", "Perform bulk operations on objects"),
+    ("objects.merge", "Merge duplicate objects"),
+    # =========================================================================
+    # Observation Journal
+    # =========================================================================
+    ("journal.view", "View observation journal sessions"),
+    ("journal.create", "Add new observation sessions"),
+    ("journal.edit", "Edit observation sessions"),
+    ("journal.delete", "Delete observation sessions"),
+    ("journal.export", "Export journal to CSV/PDF"),
+    # =========================================================================
+    # Projects
+    # =========================================================================
+    ("projects.view", "View imaging projects"),
+    ("projects.create", "Create new projects"),
+    ("projects.edit", "Edit project details"),
+    ("projects.delete", "Delete projects"),
+    ("projects.report", "Generate project reports"),
+    # =========================================================================
+    # Equipment (Components & Rigs)
+    # =========================================================================
+    ("equipment.view", "View equipment components and rigs"),
+    ("equipment.create", "Add new equipment"),
+    ("equipment.edit", "Edit equipment details"),
+    ("equipment.delete", "Delete equipment"),
+    # =========================================================================
+    # Locations
+    # =========================================================================
+    ("locations.view", "View observation locations"),
+    ("locations.create", "Add new locations"),
+    ("locations.edit", "Edit location details"),
+    ("locations.delete", "Delete locations"),
+    ("locations.set_active", "Change active location"),
+    # =========================================================================
+    # Saved Views
+    # =========================================================================
+    ("views.view", "View saved views"),
+    ("views.create", "Create saved views"),
+    ("views.edit", "Edit saved views"),
+    ("views.delete", "Delete saved views"),
+    # =========================================================================
+    # Framings (FOV overlays)
+    # =========================================================================
+    ("framings.view", "View framing data"),
+    ("framings.create", "Create framing overlays"),
+    ("framings.edit", "Edit framing data"),
+    ("framings.delete", "Delete framing data"),
+    # =========================================================================
+    # Custom Filters
+    # =========================================================================
+    ("filters.view", "View custom filters"),
+    ("filters.create", "Create custom filters"),
+    ("filters.edit", "Edit custom filters"),
+    ("filters.delete", "Delete custom filters"),
+    # =========================================================================
+    # Import/Export (own data)
+    # =========================================================================
+    ("data.export", "Export own data (YAML/CSV)"),
+    ("data.import", "Import data (YAML/catalogs)"),
+    # =========================================================================
+    # Settings & Configuration
+    # =========================================================================
+    ("settings.view", "View application settings"),
+    ("settings.edit", "Edit application settings"),
+    ("settings.stellarium", "Configure Stellarium integration"),
+    # =========================================================================
+    # API Keys
+    # =========================================================================
+    ("api_keys.view", "View own API keys"),
+    ("api_keys.manage", "Create and delete API keys"),
+    # =========================================================================
+    # Shared Content
+    # =========================================================================
+    ("shared.objects.view", "View shared DSO objects from others"),
+    ("shared.views.view", "View shared saved views from others"),
+    ("shared.components.view", "View shared equipment from others"),
     ("shared.objects.fork", "Copy shared items to own collection"),
+    # =========================================================================
+    # Mobile Interface
+    # =========================================================================
+    ("mobile.access", "Access mobile interface"),
 ]
+
+
+# =============================================================================
+# Permission Categories (for UI grouping)
+# =============================================================================
+
+PERMISSION_CATEGORIES = {
+    "Admin": [
+        "admin.users.view",
+        "admin.users.manage",
+        "admin.roles.view",
+        "admin.roles.manage",
+        "admin.db.repair",
+        "admin.data.export",
+        "admin.data.import",
+    ],
+    "Dashboard": [
+        "dashboard.view",
+        "dashboard.analytics",
+        "dashboard.weather",
+        "dashboard.sun_events",
+    ],
+    "Objects": [
+        "objects.view",
+        "objects.create",
+        "objects.edit",
+        "objects.delete",
+        "objects.bulk_edit",
+        "objects.merge",
+    ],
+    "Journal": [
+        "journal.view",
+        "journal.create",
+        "journal.edit",
+        "journal.delete",
+        "journal.export",
+    ],
+    "Projects": [
+        "projects.view",
+        "projects.create",
+        "projects.edit",
+        "projects.delete",
+        "projects.report",
+    ],
+    "Equipment": [
+        "equipment.view",
+        "equipment.create",
+        "equipment.edit",
+        "equipment.delete",
+    ],
+    "Locations": [
+        "locations.view",
+        "locations.create",
+        "locations.edit",
+        "locations.delete",
+        "locations.set_active",
+    ],
+    "Saved Views": ["views.view", "views.create", "views.edit", "views.delete"],
+    "Framings": [
+        "framings.view",
+        "framings.create",
+        "framings.edit",
+        "framings.delete",
+    ],
+    "Custom Filters": [
+        "filters.view",
+        "filters.create",
+        "filters.edit",
+        "filters.delete",
+    ],
+    "Data Import/Export": ["data.export", "data.import"],
+    "Settings": ["settings.view", "settings.edit", "settings.stellarium"],
+    "API Keys": ["api_keys.view", "api_keys.manage"],
+    "Shared Content": [
+        "shared.objects.view",
+        "shared.views.view",
+        "shared.components.view",
+        "shared.objects.fork",
+    ],
+    "Mobile": ["mobile.access"],
+}
+
+
+# Default permissions for system roles
+DEFAULT_ROLE_PERMISSIONS = {
+    "admin": "*",  # All permissions (handled in code)
+    "user": [
+        # Dashboard access
+        "dashboard.view",
+        "dashboard.analytics",
+        "dashboard.weather",
+        "dashboard.sun_events",
+        # Full object management
+        "objects.view",
+        "objects.create",
+        "objects.edit",
+        "objects.delete",
+        "objects.bulk_edit",
+        "objects.merge",
+        # Full journal management
+        "journal.view",
+        "journal.create",
+        "journal.edit",
+        "journal.delete",
+        "journal.export",
+        # Full project management
+        "projects.view",
+        "projects.create",
+        "projects.edit",
+        "projects.delete",
+        "projects.report",
+        # Full equipment management
+        "equipment.view",
+        "equipment.create",
+        "equipment.edit",
+        "equipment.delete",
+        # Full location management
+        "locations.view",
+        "locations.create",
+        "locations.edit",
+        "locations.delete",
+        "locations.set_active",
+        # Full saved views management
+        "views.view",
+        "views.create",
+        "views.edit",
+        "views.delete",
+        # Full framing management
+        "framings.view",
+        "framings.create",
+        "framings.edit",
+        "framings.delete",
+        # Full filter management
+        "filters.view",
+        "filters.create",
+        "filters.edit",
+        "filters.delete",
+        # Import/export own data
+        "data.export",
+        "data.import",
+        # Settings
+        "settings.view",
+        "settings.edit",
+        "settings.stellarium",
+        # API keys
+        "api_keys.view",
+        "api_keys.manage",
+        # Shared content (view + fork)
+        "shared.objects.view",
+        "shared.views.view",
+        "shared.components.view",
+        "shared.objects.fork",
+        # Mobile access
+        "mobile.access",
+    ],
+    "readonly": [
+        # View-only access
+        "dashboard.view",
+        "dashboard.analytics",
+        "dashboard.weather",
+        "dashboard.sun_events",
+        "objects.view",
+        "journal.view",
+        "projects.view",
+        "equipment.view",
+        "locations.view",
+        "views.view",
+        "framings.view",
+        "filters.view",
+        "settings.view",
+        "shared.objects.view",
+        "shared.views.view",
+        "shared.components.view",
+        "mobile.access",
+    ],
+}
 
 
 # =============================================================================

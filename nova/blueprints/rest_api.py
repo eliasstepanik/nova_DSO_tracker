@@ -364,6 +364,7 @@ def _serialize_ui_pref(p):
 
 @rest_api_bp.route("/objects", methods=["GET"])
 @api_key_required
+@api_permission_required("objects.view")
 def list_objects():
     """List all objects for the authenticated user. Supports pagination and filtering."""
     db = _db()
@@ -397,6 +398,7 @@ def list_objects():
 
 @rest_api_bp.route("/objects", methods=["POST"])
 @api_key_required
+@api_permission_required("objects.create")
 def create_object():
     """Create a new astronomical object."""
     data = request.get_json(silent=True) or {}
@@ -431,6 +433,7 @@ def create_object():
 
 @rest_api_bp.route("/objects/<int:object_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("objects.view")
 def get_object(object_id):
     db = _db()
     try:
@@ -451,6 +454,7 @@ def get_object(object_id):
 
 @rest_api_bp.route("/objects/<int:object_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("objects.edit")
 def update_object(object_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -478,6 +482,7 @@ def update_object(object_id):
 
 @rest_api_bp.route("/objects/<int:object_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("objects.delete")
 def delete_object(object_id):
     db = _db()
     try:
@@ -539,6 +544,7 @@ def _apply_object_fields(obj, data):
 
 @rest_api_bp.route("/projects", methods=["GET"])
 @api_key_required
+@api_permission_required("projects.view")
 def list_projects():
     db = _db()
     try:
@@ -555,6 +561,7 @@ def list_projects():
 
 @rest_api_bp.route("/projects", methods=["POST"])
 @api_key_required
+@api_permission_required("projects.create")
 def create_project():
     data = request.get_json(silent=True) or {}
     if not data.get("name"):
@@ -580,6 +587,7 @@ def create_project():
 
 @rest_api_bp.route("/projects/<string:project_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("projects.view")
 def get_project(project_id):
     db = _db()
     try:
@@ -600,6 +608,7 @@ def get_project(project_id):
 
 @rest_api_bp.route("/projects/<string:project_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("projects.edit")
 def update_project(project_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -627,6 +636,7 @@ def update_project(project_id):
 
 @rest_api_bp.route("/projects/<string:project_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("projects.delete")
 def delete_project(project_id):
     db = _db()
     try:
@@ -672,6 +682,7 @@ def _apply_project_fields(p, data):
 
 @rest_api_bp.route("/locations", methods=["GET"])
 @api_key_required
+@api_permission_required("locations.view")
 def list_locations():
     db = _db()
     try:
@@ -685,6 +696,7 @@ def list_locations():
 
 @rest_api_bp.route("/locations", methods=["POST"])
 @api_key_required
+@api_permission_required("locations.create")
 def create_location():
     data = request.get_json(silent=True) or {}
     if not data.get("name"):
@@ -709,6 +721,7 @@ def create_location():
 
 @rest_api_bp.route("/locations/<int:location_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("locations.view")
 def get_location(location_id):
     db = _db()
     try:
@@ -733,6 +746,7 @@ def get_location(location_id):
 
 @rest_api_bp.route("/locations/<int:location_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("locations.edit")
 def update_location(location_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -760,6 +774,7 @@ def update_location(location_id):
 
 @rest_api_bp.route("/locations/<int:location_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("locations.delete")
 def delete_location(location_id):
     db = _db()
     try:
@@ -803,6 +818,7 @@ def _apply_location_fields(loc, data):
 
 @rest_api_bp.route("/locations/<int:location_id>/horizon", methods=["GET"])
 @api_key_required
+@api_permission_required("locations.view")
 def get_horizon(location_id):
     db = _db()
     try:
@@ -831,6 +847,7 @@ def get_horizon(location_id):
 
 @rest_api_bp.route("/locations/<int:location_id>/horizon", methods=["PUT"])
 @api_key_required
+@api_permission_required("locations.edit")
 def set_horizon(location_id):
     """Replace ALL horizon points for a location."""
     data = request.get_json(silent=True) or {}
@@ -881,6 +898,7 @@ def set_horizon(location_id):
 
 @rest_api_bp.route("/components", methods=["GET"])
 @api_key_required
+@api_permission_required("equipment.view")
 def list_components():
     db = _db()
     try:
@@ -897,6 +915,7 @@ def list_components():
 
 @rest_api_bp.route("/components", methods=["POST"])
 @api_key_required
+@api_permission_required("equipment.create")
 def create_component():
     data = request.get_json(silent=True) or {}
     if not data.get("kind") or not data.get("name"):
@@ -923,6 +942,7 @@ def create_component():
 
 @rest_api_bp.route("/components/<int:component_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("equipment.view")
 def get_component(component_id):
     db = _db()
     try:
@@ -943,6 +963,7 @@ def get_component(component_id):
 
 @rest_api_bp.route("/components/<int:component_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("equipment.edit")
 def update_component(component_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -970,6 +991,7 @@ def update_component(component_id):
 
 @rest_api_bp.route("/components/<int:component_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("equipment.delete")
 def delete_component(component_id):
     db = _db()
     try:
@@ -1018,6 +1040,7 @@ def _apply_component_fields(c, data):
 
 @rest_api_bp.route("/rigs", methods=["GET"])
 @api_key_required
+@api_permission_required("equipment.view")
 def list_rigs():
     db = _db()
     try:
@@ -1031,6 +1054,7 @@ def list_rigs():
 
 @rest_api_bp.route("/rigs", methods=["POST"])
 @api_key_required
+@api_permission_required("equipment.create")
 def create_rig():
     data = request.get_json(silent=True) or {}
     if not data.get("rig_name"):
@@ -1055,6 +1079,7 @@ def create_rig():
 
 @rest_api_bp.route("/rigs/<int:rig_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("equipment.view")
 def get_rig(rig_id):
     db = _db()
     try:
@@ -1075,6 +1100,7 @@ def get_rig(rig_id):
 
 @rest_api_bp.route("/rigs/<int:rig_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("equipment.edit")
 def update_rig(rig_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -1102,6 +1128,7 @@ def update_rig(rig_id):
 
 @rest_api_bp.route("/rigs/<int:rig_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("equipment.delete")
 def delete_rig(rig_id):
     db = _db()
     try:
@@ -1151,6 +1178,7 @@ def _apply_rig_fields(r, data):
 
 @rest_api_bp.route("/sessions", methods=["GET"])
 @api_key_required
+@api_permission_required("journal.view")
 def list_sessions():
     db = _db()
     try:
@@ -1180,6 +1208,7 @@ def list_sessions():
 
 @rest_api_bp.route("/sessions", methods=["POST"])
 @api_key_required
+@api_permission_required("journal.create")
 def create_session():
     data = request.get_json(silent=True) or {}
     if not data.get("object_name"):
@@ -1201,6 +1230,7 @@ def create_session():
 
 @rest_api_bp.route("/sessions/<int:session_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("journal.view")
 def get_session(session_id):
     db = _db()
     try:
@@ -1221,6 +1251,7 @@ def get_session(session_id):
 
 @rest_api_bp.route("/sessions/<int:session_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("journal.edit")
 def update_session(session_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -1248,6 +1279,7 @@ def update_session(session_id):
 
 @rest_api_bp.route("/sessions/<int:session_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("journal.delete")
 def delete_session(session_id):
     db = _db()
     try:
@@ -1364,6 +1396,7 @@ def _apply_session_fields(s, data):
 
 @rest_api_bp.route("/views", methods=["GET"])
 @api_key_required
+@api_permission_required("views.view")
 def list_views():
     db = _db()
     try:
@@ -1377,6 +1410,7 @@ def list_views():
 
 @rest_api_bp.route("/views", methods=["POST"])
 @api_key_required
+@api_permission_required("views.create")
 def create_view():
     data = request.get_json(silent=True) or {}
     if not data.get("name"):
@@ -1398,6 +1432,7 @@ def create_view():
 
 @rest_api_bp.route("/views/<int:view_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("views.view")
 def get_view(view_id):
     db = _db()
     try:
@@ -1418,6 +1453,7 @@ def get_view(view_id):
 
 @rest_api_bp.route("/views/<int:view_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("views.edit")
 def update_view(view_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -1445,6 +1481,7 @@ def update_view(view_id):
 
 @rest_api_bp.route("/views/<int:view_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("views.delete")
 def delete_view(view_id):
     db = _db()
     try:
@@ -1481,6 +1518,7 @@ def _apply_view_fields(v, data):
 
 @rest_api_bp.route("/framings", methods=["GET"])
 @api_key_required
+@api_permission_required("framings.view")
 def list_framings():
     db = _db()
     try:
@@ -1494,6 +1532,7 @@ def list_framings():
 
 @rest_api_bp.route("/framings", methods=["POST"])
 @api_key_required
+@api_permission_required("framings.create")
 def create_framing():
     data = request.get_json(silent=True) or {}
     if not data.get("object_name"):
@@ -1515,6 +1554,7 @@ def create_framing():
 
 @rest_api_bp.route("/framings/<int:framing_id>", methods=["GET"])
 @api_key_required
+@api_permission_required("framings.view")
 def get_framing(framing_id):
     db = _db()
     try:
@@ -1535,6 +1575,7 @@ def get_framing(framing_id):
 
 @rest_api_bp.route("/framings/<int:framing_id>", methods=["PUT"])
 @api_key_required
+@api_permission_required("framings.edit")
 def update_framing(framing_id):
     data = request.get_json(silent=True) or {}
     db = _db()
@@ -1562,6 +1603,7 @@ def update_framing(framing_id):
 
 @rest_api_bp.route("/framings/<int:framing_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("framings.delete")
 def delete_framing(framing_id):
     db = _db()
     try:
@@ -1623,6 +1665,7 @@ def _apply_framing_fields(f, data):
 
 @rest_api_bp.route("/custom-filters", methods=["GET"])
 @api_key_required
+@api_permission_required("filters.view")
 def list_custom_filters():
     db = _db()
     try:
@@ -1636,6 +1679,7 @@ def list_custom_filters():
 
 @rest_api_bp.route("/custom-filters", methods=["POST"])
 @api_key_required
+@api_permission_required("filters.create")
 def create_custom_filter():
     data = request.get_json(silent=True) or {}
     if not data.get("filter_key") or not data.get("filter_label"):
@@ -1660,6 +1704,7 @@ def create_custom_filter():
 
 @rest_api_bp.route("/custom-filters/<int:filter_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("filters.delete")
 def delete_custom_filter(filter_id):
     db = _db()
     try:
@@ -1690,6 +1735,7 @@ def delete_custom_filter(filter_id):
 
 @rest_api_bp.route("/preferences", methods=["GET"])
 @api_key_required
+@api_permission_required("settings.view")
 def get_preferences():
     db = _db()
     try:
@@ -1703,6 +1749,7 @@ def get_preferences():
 
 @rest_api_bp.route("/preferences", methods=["PUT"])
 @api_key_required
+@api_permission_required("settings.edit")
 def update_preferences():
     data = request.get_json(silent=True) or {}
     if "json_blob" not in data:
@@ -1926,6 +1973,7 @@ def login():
 
 @rest_api_bp.route("/api-keys", methods=["GET"])
 @api_key_required
+@api_permission_required("api_keys.view")
 def list_api_keys():
     """List all API keys belonging to the authenticated user."""
     db = _db()
@@ -1943,6 +1991,7 @@ def list_api_keys():
 
 @rest_api_bp.route("/api-keys", methods=["POST"])
 @api_key_required
+@api_permission_required("api_keys.manage")
 def create_api_key_endpoint():
     """Create a new API key.  Returns the raw key (only time it's visible)."""
     data = request.get_json(silent=True) or {}
@@ -1982,6 +2031,7 @@ def create_api_key_endpoint():
 
 @rest_api_bp.route("/api-keys/<int:key_id>", methods=["DELETE"])
 @api_key_required
+@api_permission_required("api_keys.manage")
 def revoke_api_key(key_id):
     """Revoke (deactivate) an API key.  Cannot delete the key you're using."""
     db = _db()
