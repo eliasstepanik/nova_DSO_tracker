@@ -295,12 +295,46 @@ Nova supports two modes, configured in `instance/.env`:
 
 ### User Management (Multi-User Mode)
 
+Nova includes a full role-based access control (RBAC) system for managing users and permissions.
+
+**Roles & Permissions:**
+  * **admin** — Full system access. Can manage users, roles, and all data.
+  * **user** — Standard access. Can view and fork shared content from other users.
+  * **readonly** — View-only access with no additional permissions.
+
+Custom roles can be created with granular permission assignments via the REST API.
+
 **Web Admin Panel:**
-When logged in as `admin`, a "Users" link appears in the header. The admin panel at `/admin/users` allows you to:
-  * Create new user accounts
+Users with admin privileges see a "Users" link in the header. The admin panel at `/admin/users` allows you to:
+  * Create new user accounts (automatically seeded with default data)
+  * Assign and remove roles per user
   * Activate or deactivate users
   * Reset passwords
-  * Delete users
+  * Delete users (admin accounts are protected)
+
+**Sharing System:**
+Users can share DSO objects, saved views, and equipment components:
+  * Shared items are visible to all users with the `shared.*.view` permission
+  * Users can fork (copy) shared items into their own collection
+  * Forked items retain provenance tracking (original owner and item ID)
+
+**REST API Endpoints (Admin):**
+| Endpoint | Description |
+|---|---|
+| `GET /api/v1/admin/users` | List all users with their roles |
+| `GET /api/v1/admin/roles` | List all roles |
+| `POST /api/v1/admin/roles` | Create a new role |
+| `DELETE /api/v1/admin/roles/<id>` | Delete a non-system role |
+| `POST /api/v1/admin/users/<id>/roles/<role_id>` | Assign role to user |
+| `DELETE /api/v1/admin/users/<id>/roles/<role_id>` | Remove role from user |
+
+**REST API Endpoints (Sharing):**
+| Endpoint | Description |
+|---|---|
+| `GET /api/v1/shared/objects` | List all shared DSO objects |
+| `GET /api/v1/shared/views` | List all shared saved views |
+| `GET /api/v1/shared/components` | List all shared equipment |
+| `POST /api/v1/shared/objects/<id>/fork` | Fork a shared object to your collection |
 
 **CLI Commands:**
 All commands below are available in multi-user mode and are interactive (they prompt for input).
@@ -308,7 +342,7 @@ All commands below are available in multi-user mode and are interactive (they pr
 | Command | Description |
 |---|---|
 | `flask init-db` | Initialize the database and create the first admin user |
-| `flask add-user` | Create a new user account |
+| `flask add-user` | Create a new user account (with default 'user' role) |
 | `flask rename-user` | Rename an existing user |
 | `flask change-password` | Change a user's password |
 | `flask delete-user` | Delete a user account (with confirmation, cannot delete admin) |
