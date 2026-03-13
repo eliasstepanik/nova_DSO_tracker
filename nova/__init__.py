@@ -15515,6 +15515,87 @@ if not SINGLE_USER_MODE:
         finally:
             db_sess.close()
 
+    @app.cli.command("seed-roles")
+    def seed_roles_command():
+        """Creates system roles and permissions for RBAC."""
+        SYSTEM_PERMISSIONS = [
+            ("admin.users.view", "View all users"),
+            ("admin.users.manage", "Create/edit/delete users"),
+            ("admin.roles.manage", "Create/edit/delete roles"),
+            ("admin.db.repair", "Run database repair tools"),
+            ("data.export.any", "Export any user data"),
+            ("data.import.any", "Import data for any user"),
+            ("shared.objects.view", "View shared DSO objects"),
+            ("shared.views.view", "View shared saved views"),
+            ("shared.components.view", "View shared equipment components"),
+            ("shared.objects.fork", "Copy shared items to own collection"),
+        ]
+
+        db_sess = SessionLocal()
+        try:
+            # Check if roles already exist
+            existing_roles = db_sess.query(Role).count()
+            if existing_roles > 0:
+                print(f"-> Found {existing_roles} existing roles. Skipping seed.")
+                return
+
+            # Create permissions
+            perms = {}
+            for name, desc in SYSTEM_PERMISSIONS:
+                p = Permission(name=name, description=desc)
+                db_sess.add(p)
+                perms[name] = p
+            db_sess.flush()
+            print(f"✅ Created {len(perms)} permissions.")
+
+            # Create admin role with all permissions
+            admin_role = Role(
+                name="admin", description="Full system access", is_system=True
+            )
+            admin_role.permissions = list(perms.values())
+            db_sess.add(admin_role)
+
+            # Create user role with sharing permissions
+            user_role = Role(name="user", description="Standard user", is_system=True)
+            user_role.permissions = [
+                perms["shared.objects.view"],
+                perms["shared.views.view"],
+                perms["shared.components.view"],
+                perms["shared.objects.fork"],
+            ]
+            db_sess.add(user_role)
+
+            # Create readonly role (no extra permissions)
+            readonly_role = Role(
+                name="readonly", description="Read-only access", is_system=True
+            )
+            db_sess.add(readonly_role)
+            db_sess.flush()
+            print("✅ Created 3 system roles: admin, user, readonly.")
+
+            # Assign admin role to any user named 'admin'
+            admin_user = db_sess.query(DbUser).filter_by(username="admin").first()
+            if admin_user:
+                admin_user.roles.append(admin_role)
+                print(f"✅ Assigned admin role to user: {admin_user.username}")
+
+            # Assign user role to all other active users without roles
+            other_users = (
+                db_sess.query(DbUser)
+                .filter(DbUser.username != "admin", DbUser.active == True)
+                .all()
+            )
+            for u in other_users:
+                if not u.roles:
+                    u.roles.append(user_role)
+            if other_users:
+                print(f"✅ Assigned user role to {len(other_users)} existing users.")
+
+            db_sess.commit()
+            print("✅ RBAC seed complete!")
+        finally:
+            db_sess.close()
+
     @app.cli.command("add-user")
     def add_user_command():
         """Creates a new user account."""
