@@ -74,7 +74,9 @@ class TestSharingReadEndpoints:
         assert response.status_code == 200
 
         data = response.get_json()
-        object_names = [obj["object_name"] for obj in data.get("objects", [])]
+        # API wraps response in {"data": {...}}
+        objects = data.get("data", {}).get("objects", [])
+        object_names = [obj["object_name"] for obj in objects]
 
         # Should see M31 (shared) but not M42 (private)
         assert "M31" in object_names
@@ -115,7 +117,8 @@ class TestSharingReadEndpoints:
         assert response.status_code == 200
 
         data = response.get_json()
-        objects = data.get("objects", [])
+        # API wraps response in {"data": {...}}
+        objects = data.get("data", {}).get("objects", [])
         assert len(objects) > 0
 
         # Each object should have owner username
@@ -165,7 +168,9 @@ class TestSharingReadEndpoints:
         assert response.status_code == 200
 
         data = response.get_json()
-        component_names = [c["name"] for c in data.get("components", [])]
+        # API wraps response in {"data": {...}}
+        components = data.get("data", {}).get("components", [])
+        component_names = [c["name"] for c in components]
 
         assert "Celestron C8" in component_names
         assert "My Secret Scope" not in component_names
@@ -204,7 +209,9 @@ class TestSharingReadEndpoints:
         assert response.status_code == 200
 
         data = response.get_json()
-        view_names = [v["name"] for v in data.get("views", [])]
+        # API wraps response in {"data": {...}}
+        views = data.get("data", {}).get("views", [])
+        view_names = [v["name"] for v in views]
 
         assert "My Galaxy Filter" in view_names
 

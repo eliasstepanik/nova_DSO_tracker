@@ -17,7 +17,7 @@ from nova.api_auth import (
     hash_api_key,
     key_prefix as _key_prefix,
 )
-from nova.permissions import api_admin_required
+from nova.permissions import api_admin_required, api_permission_required
 from nova.models import (
     SessionLocal,
     DbUser,
@@ -2057,3 +2057,316 @@ def api_status():
             "user": g.db_user.username,
         }
     )
+
+
+# ──────────────────────────────────────────────────────────
+#  SHARING: Read Endpoints
+# ──────────────────────────────────────────────────────────
+
+
+def _serialize_shared_object(obj, owner_username=None):
+    """Serialize a shared object with owner info."""
+    data = _serialize_object(obj)
+    data["owner_username"] = owner_username or "unknown"
+    data["user_id"] = obj.user_id
+    return data
+
+
+def _serialize_shared_component(comp, owner_username=None):
+    """Serialize a shared component with owner info."""
+    data = _serialize_component(comp)
+    data["owner_username"] = owner_username or "unknown"
+    data["user_id"] = comp.user_id
+    return data
+
+
+def _serialize_shared_view(view, owner_username=None):
+    """Serialize a shared view with owner info."""
+    data = _serialize_saved_view(view)
+    data["owner_username"] = owner_username or "unknown"
+    data["user_id"] = view.user_id
+    return data
+
+
+@rest_api_bp.route("/shared/objects", methods=["GET"])
+@api_key_or_login_required
+@api_permission_required("shared.objects.view")
+def get_shared_objects():
+    """Return all shared objects from all users."""
+    db = _db()
+    try:
+        # Get all shared objects with their owners
+        shared_objects = (
+            db.query(AstroObject, DbUser.username)
+            .join(DbUser, AstroObject.user_id == DbUser.id)
+            .filter(AstroObject.is_shared == True)
+            .order_by(AstroObject.object_name)
+            .all()
+        )
+        return _ok(
+            {
+                "objects": [
+                    _serialize_shared_object(obj, username)
+                    for obj, username in shared_objects
+                ]
+            }
+        )
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/shared/components", methods=["GET"])
+@api_key_or_login_required
+@api_permission_required("shared.components.view")
+def get_shared_components():
+    """Return all shared components from all users."""
+    db = _db()
+    try:
+        shared_components = (
+            db.query(Component, DbUser.username)
+            .join(DbUser, Component.user_id == DbUser.id)
+            .filter(Component.is_shared == True)
+            .order_by(Component.name)
+            .all()
+        )
+        return _ok(
+            {
+                "components": [
+                    _serialize_shared_component(comp, username)
+                    for comp, username in shared_components
+                ]
+            }
+        )
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/shared/views", methods=["GET"])
+@api_key_or_login_required
+@api_permission_required("shared.views.view")
+def get_shared_views():
+    """Return all shared saved views from all users."""
+    db = _db()
+    try:
+        shared_views = (
+            db.query(SavedView, DbUser.username)
+            .join(DbUser, SavedView.user_id == DbUser.id)
+            .filter(SavedView.is_shared == True)
+            .order_by(SavedView.name)
+            .all()
+        )
+        return _ok(
+            {
+                "views": [
+                    _serialize_shared_view(view, username)
+                    for view, username in shared_views
+                ]
+            }
+        )
+    finally:
+        db.remove()
+
+
+# ──────────────────────────────────────────────────────────
+#  SHARING: Fork Endpoints
+# ──────────────────────────────────────────────────────────
+
+
+@rest_api_bp.route("/shared/objects/<int:object_id>/fork", methods=["POST"])
+@api_key_or_login_required
+@api_permission_required("shared.objects.fork")
+def fork_shared_object(object_id):
+    """Fork a shared object into the current user's collection."""
+    db = _db()
+    try:
+        # Find the shared object
+        source = db.query(AstroObject).filter_by(id=object_id).first()
+        if not source:
+            return _err("Object not found", 404)
+        if not source.is_shared:
+            return _err("Object is not shared", 403)
+
+        user_id = _user_id()
+
+        # Check for existing object with same name
+        existing = (
+            db.query(AstroObject)
+            .filter_by(user_id=user_id, object_name=source.object_name)
+            .first()
+        )
+        new_name = source.object_name
+        if existing:
+            # Append _copy suffix to avoid collision
+            suffix = "_copy"
+            counter = 1
+            while True:
+                new_name = f"{source.object_name}{suffix}"
+                if counter > 1:
+                    new_name = f"{source.object_name}{suffix}{counter}"
+                check = (
+                    db.query(AstroObject)
+                    .filter_by(user_id=user_id, object_name=new_name)
+                    .first()
+                )
+                if not check:
+                    break
+                counter += 1
+
+        # Create the fork
+        forked = AstroObject(
+            user_id=user_id,
+            object_name=new_name,
+            common_name=source.common_name,
+            ra_hours=source.ra_hours,
+            dec_deg=source.dec_deg,
+            type=source.type,
+            constellation=source.constellation,
+            magnitude=source.magnitude,
+            size=source.size,
+            sb=source.sb,
+            active_project=False,
+            project_name=None,
+            is_shared=False,  # Fork is private by default
+            shared_notes=None,
+            original_user_id=source.user_id,
+            original_item_id=source.id,
+            catalog_sources=source.catalog_sources,
+            catalog_info=source.catalog_info,
+            enabled=source.enabled,
+            image_url=source.image_url,
+            image_credit=source.image_credit,
+            image_source_link=source.image_source_link,
+            description_text=source.description_text,
+            description_credit=source.description_credit,
+            description_source_link=source.description_source_link,
+        )
+        db.add(forked)
+        db.commit()
+        db.refresh(forked)
+        return _ok(_serialize_object(forked), status=201)
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/shared/components/<int:component_id>/fork", methods=["POST"])
+@api_key_or_login_required
+@api_permission_required("shared.objects.fork")
+def fork_shared_component(component_id):
+    """Fork a shared component into the current user's equipment."""
+    db = _db()
+    try:
+        source = db.query(Component).filter_by(id=component_id).first()
+        if not source:
+            return _err("Component not found", 404)
+        if not source.is_shared:
+            return _err("Component is not shared", 403)
+
+        user_id = _user_id()
+
+        # Check for existing component with same name
+        existing = (
+            db.query(Component).filter_by(user_id=user_id, name=source.name).first()
+        )
+        new_name = source.name
+        if existing:
+            suffix = "_copy"
+            counter = 1
+            while True:
+                new_name = f"{source.name}{suffix}"
+                if counter > 1:
+                    new_name = f"{source.name}{suffix}{counter}"
+                check = (
+                    db.query(Component)
+                    .filter_by(user_id=user_id, name=new_name)
+                    .first()
+                )
+                if not check:
+                    break
+                counter += 1
+
+        # Create the fork (generate new stable_uid)
+        import uuid as uuid_mod
+
+        forked = Component(
+            stable_uid=str(uuid_mod.uuid4()),
+            user_id=user_id,
+            kind=source.kind,
+            name=new_name,
+            aperture_mm=source.aperture_mm,
+            focal_length_mm=source.focal_length_mm,
+            sensor_width_mm=source.sensor_width_mm,
+            sensor_height_mm=source.sensor_height_mm,
+            pixel_size_um=source.pixel_size_um,
+            factor=source.factor,
+            is_shared=False,
+            original_user_id=source.user_id,
+            original_item_id=source.id,
+        )
+        db.add(forked)
+        db.commit()
+        db.refresh(forked)
+        return _ok(_serialize_component(forked), status=201)
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/shared/views/<int:view_id>/fork", methods=["POST"])
+@api_key_or_login_required
+@api_permission_required("shared.objects.fork")
+def fork_shared_view(view_id):
+    """Fork a shared view into the current user's saved views."""
+    db = _db()
+    try:
+        source = db.query(SavedView).filter_by(id=view_id).first()
+        if not source:
+            return _err("View not found", 404)
+        if not source.is_shared:
+            return _err("View is not shared", 403)
+
+        user_id = _user_id()
+
+        # Check for existing view with same name
+        existing = (
+            db.query(SavedView).filter_by(user_id=user_id, name=source.name).first()
+        )
+        new_name = source.name
+        if existing:
+            suffix = "_copy"
+            counter = 1
+            while True:
+                new_name = f"{source.name}{suffix}"
+                if counter > 1:
+                    new_name = f"{source.name}{suffix}{counter}"
+                check = (
+                    db.query(SavedView)
+                    .filter_by(user_id=user_id, name=new_name)
+                    .first()
+                )
+                if not check:
+                    break
+                counter += 1
+
+        forked = SavedView(
+            user_id=user_id,
+            name=new_name,
+            description=source.description,
+            settings_json=source.settings_json,
+            is_shared=False,
+            original_user_id=source.user_id,
+            original_item_id=source.id,
+        )
+        db.add(forked)
+        db.commit()
+        db.refresh(forked)
+        return _ok(_serialize_saved_view(forked), status=201)
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
