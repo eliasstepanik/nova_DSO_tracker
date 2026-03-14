@@ -3916,11 +3916,14 @@ app.config["WTF_CSRF_CHECK_DEFAULT"] = (
 )
 
 # --- Internationalization (i18n) with Flask-Babel ---
-app.config['BABEL_DEFAULT_LOCALE'] = 'en'
-app.config['BABEL_SUPPORTED_LOCALES'] = ['en', 'de', 'fr', 'es', 'ja', 'zh']
+app.config["BABEL_DEFAULT_LOCALE"] = "en"
+app.config["BABEL_SUPPORTED_LOCALES"] = ["en", "de", "fr", "es", "ja", "zh"]
 # Translations are at project root (../translations relative to nova/ package)
-app.config['BABEL_TRANSLATION_DIRECTORIES'] = os.path.join(os.path.dirname(__file__), '..', 'translations')
+app.config["BABEL_TRANSLATION_DIRECTORIES"] = os.path.join(
+    os.path.dirname(__file__), "..", "translations"
+)
 babel = Babel()  # Create without app - will init with locale_selector below
+
 
 def get_locale():
     """
@@ -3928,24 +3931,27 @@ def get_locale():
     Reads language preference from user config or session, falls back to browser preference or 'en'.
     """
     # Try user preference first (set by load_global_request_context)
-    if hasattr(g, 'user_config') and g.user_config:
-        user_lang = g.user_config.get('language')
-        if user_lang and user_lang in app.config['BABEL_SUPPORTED_LOCALES']:
+    if hasattr(g, "user_config") and g.user_config:
+        user_lang = g.user_config.get("language")
+        if user_lang and user_lang in app.config["BABEL_SUPPORTED_LOCALES"]:
             return user_lang
     # Try session (for guest users)
-    session_lang = session.get('language')
-    if session_lang and session_lang in app.config['BABEL_SUPPORTED_LOCALES']:
+    session_lang = session.get("language")
+    if session_lang and session_lang in app.config["BABEL_SUPPORTED_LOCALES"]:
         return session_lang
     # Fall back to browser preference
-    browser_locale = request.accept_languages.best_match(app.config['BABEL_SUPPORTED_LOCALES'])
+    browser_locale = request.accept_languages.best_match(
+        app.config["BABEL_SUPPORTED_LOCALES"]
+    )
     if browser_locale:
         return browser_locale
     # Default
-    return 'en'
+    return "en"
+
 
 # Initialize Babel with the app and locale_selector in one call
 babel.init_app(app, locale_selector=get_locale)
-app.jinja_env.globals['get_locale'] = get_locale
+app.jinja_env.globals["get_locale"] = get_locale
 
 # --- Performance: gzip response compression ---
 from flask_compress import Compress
@@ -7593,7 +7599,13 @@ def add_component():
 
         db.add(new_comp)
         db.commit()
-        flash(_("Component '%(component_name)s' added successfully.", component_name=new_comp.name), "success")
+        flash(
+            _(
+                "Component '%(component_name)s' added successfully.",
+                component_name=new_comp.name,
+            ),
+            "success",
+        )
     except Exception as e:
         db.rollback()
         flash(f"Error adding component: {e}", "error")
@@ -7636,7 +7648,13 @@ def update_component():
             comp.factor = float(form.get("factor"))
 
         db.commit()
-        flash(_("Component '%(component_name)s' updated successfully.", component_name=comp.name), "success")
+        flash(
+            _(
+                "Component '%(component_name)s' updated successfully.",
+                component_name=comp.name,
+            ),
+            "success",
+        )
     except Exception as e:
         db.rollback()
         flash(f"Error updating component: {e}", "error")
@@ -7704,7 +7722,13 @@ def add_rig():
             )
             db.add(new_rig)
             rig = new_rig  # Reference the new object for update below
-            flash(_("Rig '%(rig_name)s' created successfully.", rig_name=new_rig.rig_name), "success")
+            flash(
+                _(
+                    "Rig '%(rig_name)s' created successfully.",
+                    rig_name=new_rig.rig_name,
+                ),
+                "success",
+            )
 
         # 3. Persist calculated values to the Rig object (for both ADD and UPDATE)
         rig.effective_focal_length = efl
@@ -7746,7 +7770,9 @@ def delete_component():
         )
 
         if in_use:
-            flash(_("Cannot delete component: It is used in at least one rig."), "error")
+            flash(
+                _("Cannot delete component: It is used in at least one rig."), "error"
+            )
         else:
             comp_to_delete = db.get(Component, comp_id)
             db.delete(comp_to_delete)
@@ -8735,7 +8761,13 @@ def add_project_from_journal():
 
         existing = db.query(Project).filter_by(user_id=user.id, name=name).first()
         if existing:
-            flash(_("A project named '%(project_name)s' already exists.", project_name=name), "error")
+            flash(
+                _(
+                    "A project named '%(project_name)s' already exists.",
+                    project_name=name,
+                ),
+                "error",
+            )
             return redirect(
                 url_for(
                     "core.graph_dashboard",
@@ -8772,7 +8804,10 @@ def add_project_from_journal():
         if should_trigger_outlook:
             trigger_outlook_update_for_user(username)
 
-        flash(_("Project '%(project_name)s' created successfully.", project_name=name), "success")
+        flash(
+            _("Project '%(project_name)s' created successfully.", project_name=name),
+            "success",
+        )
 
         # Build redirect args explicitly to ensure clean URL construction
         redirect_args = {
@@ -9287,11 +9322,23 @@ def inject_user_mode():
         if user_config
         else "follow_system"
     )
+    # Translation status from upstream i18n feature
+    translation_status = {
+        "en": "complete",
+        "de": "complete",
+        "fr": "complete",
+        "es": "complete",
+        "ja": "auto",
+        "zh": "auto",
+    }
+    current_language = session.get("language", "en")
     return {
         "SINGLE_USER_MODE": SINGLE_USER_MODE,
         "current_user": current_user,
         "is_guest": getattr(g, "is_guest", False),
         "user_theme_preference": theme_preference,
+        "translation_status": translation_status,
+        "current_language": current_language,
     }
 
 
@@ -9303,50 +9350,49 @@ def logout():
     return redirect(url_for("core.login"))
 
 
-
-@core_bp.route('/set_language/<lang>')
+@core_bp.route("/set_language/<lang>")
 def set_language(lang):
     """Set the user's preferred language and redirect back."""
     # Validate the language is supported
-    supported_locales = app.config.get('BABEL_SUPPORTED_LOCALES', ['en'])
+    supported_locales = app.config.get("BABEL_SUPPORTED_LOCALES", ["en"])
     if lang not in supported_locales:
         flash(_("Language '%(lang)s' is not supported.", lang=lang), "error")
-        return redirect(request.referrer or url_for('core.index'))
+        return redirect(request.referrer or url_for("core.index"))
 
     # Get the current user
-    if not hasattr(g, 'db_user') or not g.db_user:
+    if not hasattr(g, "db_user") or not g.db_user:
         # For guest users, just set session and redirect
-        session['language'] = lang
-        return redirect(request.referrer or url_for('core.index'))
+        session["language"] = lang
+        return redirect(request.referrer or url_for("core.index"))
 
     # Save to UiPref.json_blob for authenticated users
     db = get_db()
     try:
         prefs = db.query(UiPref).filter_by(user_id=g.db_user.id).first()
         if not prefs:
-            prefs = UiPref(user_id=g.db_user.id, json_blob='{}')
+            prefs = UiPref(user_id=g.db_user.id, json_blob="{}")
             db.add(prefs)
 
         # Load existing settings, add language, save back
         try:
-            settings = json.loads(prefs.json_blob or '{}')
+            settings = json.loads(prefs.json_blob or "{}")
         except json.JSONDecodeError:
             settings = {}
 
-        settings['language'] = lang
+        settings["language"] = lang
         prefs.json_blob = json.dumps(settings, ensure_ascii=False)
         db.commit()
 
         # Update g.user_config for current request
-        if hasattr(g, 'user_config'):
-            g.user_config['language'] = lang
+        if hasattr(g, "user_config"):
+            g.user_config["language"] = lang
 
     except Exception as e:
         db.rollback()
         print(f"[SET_LANGUAGE] Error saving language preference: {e}")
 
     # Redirect back to the previous page
-    return redirect(request.referrer or url_for('core.index'))
+    return redirect(request.referrer or url_for("core.index"))
 
 
 def get_static_cache_key(obj_name, date_str, location):
@@ -11633,7 +11679,7 @@ def get_help_content(topic_id):
 
     # 3. Fallback to English if localized file doesn't exist
     if not os.path.exists(file_path):
-        file_path = os.path.join(_project_root, 'help_docs', 'en', f'{safe_topic}.md')
+        file_path = os.path.join(_project_root, "help_docs", "en", f"{safe_topic}.md")
 
     # 4. Check if file exists (even after fallback)
     if not os.path.exists(file_path):
@@ -15095,7 +15141,9 @@ def import_journal_photos():
     except zipfile.BadZipFile:
         flash(_("Import failed: The ZIP file appears to be corrupted."), "error")
     except Exception as e:
-        flash(_("An unexpected error occurred during import: %(error)s", error=e), "error")
+        flash(
+            _("An unexpected error occurred during import: %(error)s", error=e), "error"
+        )
 
     return redirect(url_for("core.config_form"))
 
