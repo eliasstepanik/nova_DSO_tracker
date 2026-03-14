@@ -24,9 +24,6 @@
 {% endblock %}
 
 {% block header_actions %}
-    {% if SINGLE_USER_MODE or not is_guest %}
-       <button class="action-button" data-nav-url="{{ url_for('core.config_form') }}">{{ _('Configuration') }}</button>
-    {% endif %}
 {% endblock %}
 
 {% block header_content %}
