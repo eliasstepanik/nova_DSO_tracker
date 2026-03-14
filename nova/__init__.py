@@ -241,6 +241,7 @@ from nova.blueprints.mobile import mobile_bp
 from nova.blueprints.projects import projects_bp
 from nova.blueprints.tools import tools_bp
 from nova.blueprints.rest_api import rest_api_bp
+from nova.blueprints.weather import weather_bp
 from nova.api_auth import ensure_single_user_api_key, api_key_or_login_required
 
 
@@ -5675,7 +5676,7 @@ def get_open_meteo_data(lat: float, lon: float) -> dict | None:
         params = {
             "latitude": lat,
             "longitude": lon,
-            "hourly": "temperature_2m,relative_humidity_2m,cloud_cover_low,cloud_cover_mid,cloud_cover_high",
+            "hourly": "temperature_2m,relative_humidity_2m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,wind_speed_10m",
             "forecast_days": 7,
             "timezone": "UTC",  # Request data in UTC for easier processing
         }
@@ -5844,12 +5845,14 @@ def get_hybrid_weather_forecast(lat, lon):
 
                 temp = om_hourly.get("temperature_2m", [None] * len(times))[i]
                 rh = om_hourly.get("relative_humidity_2m", [None] * len(times))[i]
+                wind = om_hourly.get("wind_speed_10m", [None] * len(times))[i]
 
                 block = {
                     "timepoint": timepoint,
                     "cloudcover": cloudcover_1_9,
                     "temp2m": temp,
                     "rh2m": rh,
+                    "wind_speed": wind,
                     "seeing": -9999,
                     "transparency": -9999,
                 }
@@ -10549,8 +10552,10 @@ def get_locations():
             .order_by(Location.name)
             .all()
         )
-        # Extract just the names for the dropdown list
-        active_loc_names = [loc.name for loc in active_locs]
+        # Extract location data including coordinates for weather feature
+        active_loc_data = [
+            {"name": loc.name, "lat": loc.lat, "lon": loc.lon} for loc in active_locs
+        ]
 
         # Determine which location should be pre-selected in the dropdown
         selected = None
@@ -10560,13 +10565,13 @@ def get_locations():
         if default_loc:
             # If an active default location exists, use it
             selected = default_loc
-        elif active_loc_names:
+        elif active_loc_data:
             # Otherwise, if there are any active locations, use the first one in the list
-            selected = active_loc_names[0]
+            selected = active_loc_data[0]["name"]
         # If there are no active locations, 'selected' remains None
 
-        # Return the list of active location names and the name of the location to be selected
-        return jsonify({"locations": active_loc_names, "selected": selected})
+        # Return the list of active locations with coordinates and the name of the location to be selected
+        return jsonify({"locations": active_loc_data, "selected": selected})
     except Exception as e:
         # Log any unexpected errors during database access
         print(f"Error in get_locations for user '{username}': {e}")
@@ -17795,5 +17800,6 @@ app.register_blueprint(mobile_bp)
 app.register_blueprint(projects_bp)
 app.register_blueprint(tools_bp)
 app.register_blueprint(rest_api_bp, url_prefix="/api/v1")
+app.register_blueprint(weather_bp, url_prefix="/api/v1/weather")
 
 # ── API-key bootstrap (single-use
