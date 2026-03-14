@@ -533,4 +533,30 @@ document.addEventListener('change', function(e) {
     if (e.target && e.target.id === 'language-select') {
         clearTranslationBannerFlags();
     }
-});;
+});
+
+(function initUserDropdown() {
+    const dropdown = document.querySelector('.user-dropdown');
+    if (!dropdown) return;
+
+    const toggle = dropdown.querySelector('.user-dropdown-toggle');
+    toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', dropdown.classList.contains('open'));
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && dropdown.classList.contains('open')) {
+            dropdown.classList.remove('open');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    });
+})();

@@ -1867,6 +1867,83 @@ def update_stellarium_settings():
 
 
 # ──────────────────────────────────────────────────────────
+#  TELESCOPIUS SETTINGS  (per-user, stored in UiPref blob)
+# ──────────────────────────────────────────────────────────
+
+
+_TELESCOPIUS_DEFAULTS = {
+    "url": "",
+    "enabled": False,
+}
+
+
+def _get_telescopius_settings(db, user_id):
+    import json as _json
+
+    pref = db.query(UiPref).filter(UiPref.user_id == user_id).first()
+    if pref and pref.json_blob:
+        try:
+            blob = _json.loads(pref.json_blob)
+            tele = blob.get("telescopius", {})
+            return {
+                "url": tele.get("url", _TELESCOPIUS_DEFAULTS["url"]),
+                "enabled": bool(tele.get("enabled", _TELESCOPIUS_DEFAULTS["enabled"])),
+            }
+        except (ValueError, TypeError):
+            pass
+    return dict(_TELESCOPIUS_DEFAULTS)
+
+
+@rest_api_bp.route("/telescopius/settings", methods=["GET"])
+@api_key_or_login_required
+def get_telescopius_settings():
+    db = _db()
+    try:
+        return _ok(_get_telescopius_settings(db, _user_id()))
+    finally:
+        db.remove()
+
+
+@rest_api_bp.route("/telescopius/settings", methods=["PUT"])
+@api_key_or_login_required
+def update_telescopius_settings():
+    import json as _json
+
+    data = request.get_json(silent=True) or {}
+    url = data.get("url", "").strip()
+    enabled = data.get("enabled")
+
+    db = _db()
+    try:
+        pref = db.query(UiPref).filter(UiPref.user_id == _user_id()).first()
+        blob = {}
+        if pref and pref.json_blob:
+            try:
+                blob = _json.loads(pref.json_blob)
+            except (ValueError, TypeError):
+                blob = {}
+
+        blob["telescopius"] = {
+            "url": url,
+            "enabled": bool(enabled),
+        }
+
+        new_blob = _json.dumps(blob)
+        if pref is None:
+            pref = UiPref(user_id=_user_id(), json_blob=new_blob)
+            db.add(pref)
+        else:
+            pref.json_blob = new_blob
+        db.commit()
+        return _ok(blob["telescopius"])
+    except Exception as e:
+        db.rollback()
+        return _err(str(e), 500)
+    finally:
+        db.remove()
+
+
+# ──────────────────────────────────────────────────────────
 #  AUTH  (register / login — multi-user mode only)
 # ──────────────────────────────────────────────────────────
 

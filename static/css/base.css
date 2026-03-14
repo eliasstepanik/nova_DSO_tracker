@@ -1263,3 +1263,101 @@
     .footer { display: none; }
 }
 
+/* ===================================================================
+   USER DROPDOWN MENU
+   ================================================================ */
+
+.user-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.user-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.15s ease;
+}
+
+.user-dropdown-toggle:hover {
+    background-color: var(--bg-light);
+}
+
+.user-dropdown-chevron {
+    transition: transform 0.2s ease;
+}
+
+.user-dropdown.open .user-dropdown-chevron {
+    transform: rotate(180deg);
+}
+
+.user-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    background: var(--bg-white);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    z-index: 1000;
+    padding: 6px 0;
+}
+
+.user-dropdown.open .user-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.user-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.1s ease;
+}
+
+.user-dropdown-item:hover {
+    background-color: var(--bg-light);
+}
+
+.user-dropdown-item svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+
+.user-dropdown-divider {
+    height: 1px;
+    background-color: var(--border-subtle);
+    margin: 6px 0;
+}
+
+.user-dropdown-logout {
+    color: var(--danger-color, #dc3545);
+}
+
+.user-dropdown-logout svg {
+    color: var(--danger-color, #dc3545);
+}
+
