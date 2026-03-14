@@ -572,4 +572,18 @@
         }
     }
 
+
+    /* ── Stellarium GoTo integration ────────────────────── */
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.NovaStellarium) return;
+        NovaStellarium.initPageActions();
+
+        var btn = document.getElementById('open-in-stellarium');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                if (window.openInStellarium) window.openInStellarium();
+            });
+        }
+    });
+
 })();
