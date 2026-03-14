@@ -572,32 +572,6 @@
       </ol>
     </details>
 
-    <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border-subtle);">
-
-    <h2>Telescopius Integration</h2>
-    <p>Configure a custom <a href="https://telescopius.com" target="_blank">Telescopius</a> URL 
-       for your planning links.</p>
-
-    <div class="form-group" style="margin-top:20px">
-      <label for="tele-enabled" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="tele-enabled" style="width:auto">
-        Enable Telescopius integration
-      </label>
-    </div>
-
-    <div id="tele-fields" style="margin-top:16px">
-      <div class="form-group">
-        <label for="tele-url">Telescopius Base URL</label>
-        <input type="url" id="tele-url" placeholder="https://telescopius.com"
-               style="max-width:400px">
-        <small style="color:var(--text-tertiary)">Custom Telescopius instance URL (leave blank for default)</small>
-      </div>
-
-      <div style="display:flex;gap:12px;margin-top:18px;flex-wrap:wrap">
-        <button type="button" id="tele-save" class="btn btn-primary">Save Settings</button>
-      </div>
-      <div id="tele-status" style="margin-top:12px;padding:8px 12px;border-radius:6px;display:none"></div>
-    </div>
   </div>
 </div>
 
@@ -797,67 +771,6 @@
             });
         });
     });
-
-    (function initTelescopius() {
-        const teleEnabled = document.getElementById('tele-enabled');
-        const teleUrl = document.getElementById('tele-url');
-        const teleSave = document.getElementById('tele-save');
-        const teleStatus = document.getElementById('tele-status');
-        const teleFields = document.getElementById('tele-fields');
-        
-        if (!teleEnabled) return;
-
-        function showStatus(msg, isError) {
-            teleStatus.textContent = msg;
-            teleStatus.style.display = 'block';
-            teleStatus.style.background = isError ? 'var(--danger-bg, #fee)' : 'var(--success-bg, #efe)';
-            teleStatus.style.color = isError ? 'var(--danger-color, #c00)' : 'var(--success-color, #060)';
-            setTimeout(() => { teleStatus.style.display = 'none'; }, 4000);
-        }
-
-        function updateFieldsVisibility() {
-            teleFields.style.opacity = teleEnabled.checked ? '1' : '0.5';
-            teleUrl.disabled = !teleEnabled.checked;
-        }
-
-        async function loadSettings() {
-            try {
-                const res = await fetch('/api/v1/telescopius/settings');
-                const data = await res.json();
-                const settings = data.data || data;
-                teleEnabled.checked = settings.enabled || false;
-                teleUrl.value = settings.url || '';
-                updateFieldsVisibility();
-            } catch (e) {
-                console.error('Failed to load Telescopius settings:', e);
-            }
-        }
-
-        async function saveSettings() {
-            try {
-                const res = await fetch('/api/v1/telescopius/settings', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: teleUrl.value,
-                        enabled: teleEnabled.checked
-                    })
-                });
-                if (res.ok) {
-                    showStatus('Settings saved!', false);
-                } else {
-                    const err = await res.json();
-                    showStatus(err.error || 'Save failed', true);
-                }
-            } catch (e) {
-                showStatus('Save failed: ' + e.message, true);
-            }
-        }
-
-        teleEnabled.addEventListener('change', updateFieldsVisibility);
-        teleSave.addEventListener('click', saveSettings);
-        loadSettings();
-    })();
 
 </script>
 
