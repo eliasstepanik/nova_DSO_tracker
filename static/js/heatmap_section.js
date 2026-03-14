@@ -76,7 +76,7 @@
         let completedChunks = 0;
 
         function fetchChunk(index) {
-            if (loadingText) loadingText.textContent = `Calculating month ${index + 1} of ${totalChunks}...`;
+            if (loadingText) loadingText.textContent = window.t('calculating_month').replace('{0}', index + 1).replace('{1}', totalChunks);
 
             fetch(`/api/get_yearly_heatmap_chunk?chunk_index=${index}&location_name=${encodeURIComponent(currentLoc)}`)
                 .then(res => res.json())
@@ -162,7 +162,7 @@
         }
 
         if (!data || data.error) {
-            plotDiv.innerHTML = `<div style="color:red; text-align:center; padding:20px;">${data ? data.error : 'No Data'}</div>`;
+            plotDiv.innerHTML = `<div style="color:red; text-align:center; padding:20px;">${data ? data.error : window.t('no_data_available')}</div>`;
             return;
         }
 
@@ -228,7 +228,7 @@
         console.log('[heatmap] Filtered results: total=', data.y.length, 'filtered=', filteredY.length);
 
         if (filteredY.length === 0) {
-             plotDiv.innerHTML = `<div style="color:#666; text-align:center; padding:20px; padding-top:100px; font-size: 1.2em;">No projects found.<br><br><small>Adjust filters or Saved View.</small></div>`;
+             plotDiv.innerHTML = `<div style="color:#666; text-align:center; padding:20px; padding-top:100px; font-size: 1.2em;">${window.t('no_projects_found')}</div>`;
              return;
         } else {
             plotDiv.innerHTML = "";
@@ -364,8 +364,12 @@
 
         const legendText = document.getElementById('heatmap-legend-text');
         if (legendText) {
-            const qualityText = isDark ? 'Brighter teal = Best visibility' : 'Darker teal = Best visibility';
-            legendText.textContent = `* Vertical bands = Full Moon. ${qualityText}. Click any cell to view details.`;
+            const fullMoonText = legendText.dataset.textFullMoon || 'Vertical bands = Full Moon';
+            const bestDarkText = legendText.dataset.textBestDark || 'Darker teal = Best visibility';
+            const bestBrightText = legendText.dataset.textBestBright || 'Brighter teal = Best visibility';
+            const clickDetailsText = legendText.dataset.textClickDetails || 'Click any cell to view details';
+            const qualityText = isDark ? bestBrightText : bestDarkText;
+            legendText.textContent = `* ${fullMoonText}. ${qualityText}. ${clickDetailsText}.`;
         }
     }
 

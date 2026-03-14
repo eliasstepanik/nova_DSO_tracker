@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language | default('en') }}">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -81,7 +81,7 @@
     <!-- DM Sans + DM Mono - Primary typefaces -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Trix CSS loaded first so our dark mode overrides work -->
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
@@ -96,6 +96,173 @@
     <script src="{{ url_for('static', filename='js/utils.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/modal-manager.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/styling-utils.js') }}" defer></script>
+
+    <!-- ── Nova i18n — single Babel source ───────────────────────────────────── -->
+    <script>
+    window.novaI18n = {
+
+      // Generic / shared
+      loading:                        {{ _('Loading...') | tojson }},
+      calculating:                    {{ _('Calculating...') | tojson }},
+      fetching:                       {{ _('Fetching...') | tojson }},
+      saving:                         {{ _('Saving...') | tojson }},
+      saved:                          {{ _('Saved') | tojson }},
+      error:                          {{ _('Error') | tojson }},
+      edit:                           {{ _('Edit') | tojson }},
+      delete:                         {{ _('Delete') | tojson }},
+      update:                         {{ _('Update') | tojson }},
+      none:                           {{ _('None') | tojson }},
+      mode:                           {{ _('Mode') | tojson }},
+      simulated:                      {{ _('Simulated') | tojson }},
+      sep:                            {{ _('sep') | tojson }},
+      import_btn:                     {{ _('Import') | tojson }},
+      importing:                      {{ _('Importing...') | tojson }},
+      imported:                       {{ _('Imported') | tojson }},
+
+      // dashboard.js
+      name_required:                  {{ _('Name is required') | tojson }},
+      data_load_failed:               {{ _('Data Load Failed') | tojson }},
+      no_targets_found:               {{ _('No targets found matching your filters.') | tojson }},
+      updating_location:              {{ _('Updating location...') | tojson }},
+      no_imaging_opportunities:       {{ _('No imaging opportunities found matching the criteria.') | tojson }},
+      waiting_background_task:        {{ _('Waiting for background task...') | tojson }},
+      no_data_available:              {{ _('No data available or error. Check server logs.') | tojson }},
+      error_fetching_data:            {{ _('Error fetching data. Check console for details.') | tojson }},
+      loading_altitude_data:          {{ _('Loading altitude data...') | tojson }},
+      altitude_data_unavailable:      {{ _('Altitude data unavailable.') | tojson }},
+      saved_views_placeholder:        {{ _('Select a saved view...') | tojson }},
+      error_loading_views:            {{ _('Error loading views') | tojson }},
+      update_in:                      {{ _('Update in') | tojson }},
+      latest_version:                 {{ _('Latest version') | tojson }},
+
+      // config_form.js
+      select_telescope:               {{ _('Select Telescope') | tojson }},
+      select_camera:                  {{ _('Select Camera') | tojson }},
+      telescope:                      {{ _('Telescope') | tojson }},
+      camera:                         {{ _('Camera') | tojson }},
+      reducer_extender:               {{ _('Reducer / Extender') | tojson }},
+      guiding:                        {{ _('Guiding') | tojson }},
+      oversampled:                    {{ _('Oversampled') | tojson }},
+      well_sampled:                   {{ _('Well sampled') | tojson }},
+      undersampled:                   {{ _('Undersampled') | tojson }},
+      no_telescopes_defined:          {{ _('No telescopes defined.') | tojson }},
+      no_cameras_defined:             {{ _('No cameras defined.') | tojson }},
+      error_loading_shared:           {{ _('Error loading shared items.') | tojson }},
+      import_failed:                  {{ _('Import failed. See console for details.') | tojson }},
+      upload_failed:                  {{ _('Upload failed. See console.') | tojson }},
+      network_error_saving:           {{ _('Network error saving object.') | tojson }},
+      image_upload_failed_network:    {{ _('Image upload failed: Network error.') | tojson }},
+      horizon_field_not_found:        {{ _('Error: Could not find the horizon mask field.') | tojson }},
+      error_reading_file:             {{ _('Error reading file. Please try again.') | tojson }},
+      no_valid_horizon_data:          {{ _('No valid horizon data found.') | tojson }},
+      shared_notes_for:               {{ _('Shared Notes for') | tojson }},
+
+      // objects_section.js
+      no_objects_selected:            {{ _('No objects selected.') | tojson }},
+      bulk_action_failed:             {{ _('Bulk action failed.') | tojson }},
+      bulk_fetch_details_failed:      {{ _('Bulk fetch details failed.') | tojson }},
+      no_potential_duplicates:        {{ _('No potential duplicates found.') | tojson }},
+      keep_a_merge_b:                 {{ _('Keep A, merge B into A') | tojson }},
+      keep_b_merge_a:                 {{ _('Keep B, merge A into B') | tojson }},
+      error_scanning_duplicates:      {{ _('Error scanning duplicates.') | tojson }},
+      merge_confirm:                  {{ _('Confirm merge?') | tojson }},
+      all_duplicates_resolved:        {{ _('All duplicates resolved.') | tojson }},
+      please_enter_object_id:         {{ _('Please enter an object identifier.') | tojson }},
+      checking_library:               {{ _('Checking your local library...') | tojson }},
+      object_found_in_library:        {{ _('Object found in your library.') | tojson }},
+      found_in_simbad:                {{ _('Found: %(name)s. Details loaded from SIMBAD\\.', name='{name}') | tojson }},
+      simbad_error:                   {{ _('SIMBAD lookup failed.') | tojson }},
+      selected:                       {{ _('selected') | tojson }},
+      no_imaging_opps_short:          {{ _('No imaging opportunities found.') | tojson }},
+
+      // journal_section.js
+      report_frame_not_found:         {{ _('Report frame not found.') | tojson }},
+      preparing_print_view:           {{ _('Preparing Print View...') | tojson }},
+      merging_session:                {{ _('Merging Session %(current)d/%(total)d...', current=44444, total=33333) | tojson }}.replace('44444', '{current}').replace('33333', '{total}'),
+      add_new_session:                {{ _('Add New Session') | tojson }},
+      add_session:                    {{ _('Add Session') | tojson }},
+      editing_session:                {{ _('Editing Session') | tojson }},
+      save_changes:                   {{ _('Save Changes') | tojson }},
+
+      // graph_view.js / graph_view_chart.js
+      failed_update_active_project:   {{ _('Failed to update Active Project: %(error)s', error='{error}') | tojson }},
+      simbad_requires_internet:       {{ _('SIMBAD requires an active internet connection to load data.') | tojson }},
+      simbad_requires_internet_short: {{ _('SIMBAD requires an active internet connection.') | tojson }},
+      add_to_calendar:                {{ _('Add to calendar') | tojson }},
+      error_loading_opportunities:    {{ _('Error loading opportunities: %(error)s', error='{error}') | tojson }},
+      failed_load_opportunities:      {{ _('Failed to load imaging opportunities. Check console for details. (%(error)s)', error='{error}') | tojson }},
+      no_rigs_configured:             {{ _('Please configure at least one rig on the Configuration page first.') | tojson }},
+      survey_load_error:              {{ _('Could not load external survey. See console for details.') | tojson }},
+      framing_saved:                  {{ _('Framing settings saved to database.') | tojson }},
+      error_saving:                   {{ _('Error saving') | tojson }},
+      please_select_rig:              {{ _('Please select a rig first.') | tojson }},
+      clipboard_failed:               {{ _('Failed to copy to clipboard. See console.') | tojson }},
+      open_saved_framing:             {{ _('Open Saved Framing') | tojson }},
+      delete_saved_framing:           {{ _('Delete Saved Framing') | tojson }},
+      image_upload_failed:            {{ _('Image upload failed. See console for details.') | tojson }},
+
+      // session_log_charts.js
+      no_timeline_data:               {{ _('No timeline data to display.') | tojson }},
+      no_phd2_data:                   {{ _('No PHD2 guide log data available.') | tojson }},
+      zoom_full:                      {{ _('Full') | tojson }},
+      zoom_in:                        {{ _('Zoom') | tojson }},
+      no_dither_data:                 {{ _('No dither data available.') | tojson }},
+      no_autofocus_data:              {{ _('No autofocus data available.') | tojson }},
+
+      // heatmap_section.js
+      calculating_month:              {{ _('Calculating month %(current)d of %(total)d...', current=44444, total=33333) | tojson }}.replace('44444', '{current}').replace('33333', '{total}'),
+      no_projects_found:              {{ _('No projects found. Adjust filters or add projects.') | tojson }},
+      plotly_not_loaded:              {{ _('Plotly library not loaded. Please refresh.') | tojson }},
+
+      // base.js
+      loading_help:                   {{ _('Loading help content...') | tojson }},
+      help_content_empty:             {{ _('Error: Help content returned empty.') | tojson }},
+      help_network_error:             {{ _('Network Error: Could not load help topic.') | tojson }},
+
+      // Pluralised / parametric strings
+      showing_objects:                {{ _('Showing %(count)d objects', count=11111) | tojson }}.replace('11111', '{count}'),
+      showing_objects_of:             {{ _('Showing %(shown)d of %(total)d objects', shown=22222, total=33333) | tojson }}.replace('22222', '{shown}').replace('33333', '{total}'),
+      confirm_bulk_action:            {{ _('Are you sure you want to %(action)s %(count)d objects?', action='{action}', count=11111) | tojson }}.replace('11111', '{count}'),
+      fetching_details_for:           {{ _('Fetching details for %(name)s...', name='{name}') | tojson }},
+
+      // Additional strings called via window.t() but missing from novaI18n
+      effective_fl:                  {{ _('Effective FL') | tojson }},
+      field_of_view:                 {{ _('Field of View') | tojson }},
+      good_sampling:                 {{ _('Good sampling') | tojson }},
+      image_scale:                   {{ _('Image Scale') | tojson }},
+      no_reducers_defined:             {{ _('No reducers defined.') | tojson }},
+      slightly_oversampled:            {{ _('Slightly oversampled') | tojson }},
+      slightly_undersampled:            {{ _('Slightly undersampled') | tojson }},
+
+      // Inspiration section
+      add_own_inspiration:             {{ _('Add Your Own Inspiration!') | tojson }},
+      seeing_automated_survey_images:  {{ _('You are currently seeing automated survey images (DSS2).') | tojson }},
+      display_own_astrophotos:         {{ _('Did you know you can display your own astrophotos or favorite reference images here?') | tojson }},
+      go_to_config_manage_objects:     {{ _('Go to Configuration - Manage Objects to add Inspiration Content to your targets.') | tojson }},
+    };
+
+    /**
+     * Retrieve a translated string by key.
+     * @param {string} key    — must exist in window.novaI18n
+     * @param {Object} params — optional substitution map e.g. { count: 5 }
+     *                          replaces {count} placeholders in the string
+     */
+    window.t = function(key, params) {
+      let str = window.novaI18n[key];
+      if (str === undefined) {
+        console.warn('[i18n] Missing key:', key);
+        return key;
+      }
+      if (params) {
+        Object.entries(params).forEach(([k, v]) => {
+          str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), v);
+        });
+      }
+      return str;
+    };
+    // ── End Nova i18n ─────────────────────────────────────────────────────────────────
+    </script>
+
     {% block head_extra %}{% endblock %}
   </head>
   <body>
@@ -103,7 +270,7 @@
     {% block demo_banner %}
     {% if is_guest %}
     <div class="demo-banner">
-      <strong>Demo Mode:</strong> You are viewing a read-only demo. Full functionality (like saving) is enabled for registered users.
+      <strong>{{ _('Demo Mode:') }}</strong> {{ _('You are viewing a read-only demo. Full functionality (like saving) is enabled for registered users.') }}
     </div>
     {% endif %}
     {% endblock %}
@@ -127,7 +294,7 @@
       <div class="header-right">
           {% block header_actions %}{% endblock %}
 
-          <button id="about-trigger" class="about-trigger-button" type="button" aria-label="About Nova DSO Tracker" title="About">
+          <button id="about-trigger" class="about-trigger-button" type="button" aria-label="{{ _('About Nova DSO Tracker') }}" title="{{ _('About') }}">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="16" x2="12" y2="12"></line>
@@ -135,7 +302,7 @@
               </svg>
           </button>
 
-          <button id="theme-toggle" class="theme-toggle-button" type="button" aria-label="Toggle dark/light theme" title="Toggle theme">
+          <button id="theme-toggle" class="theme-toggle-button" type="button" aria-label="{{ _('Toggle dark/light theme') }}" title="{{ _('Toggle theme') }}">
               <!-- Sun icon (shown in dark mode) -->
               <svg class="theme-icon theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="5"></circle>
@@ -154,17 +321,28 @@
               </svg>
           </button>
 
+          <div class="language-selector">
+              <select id="language-select" aria-label="{{ _('Select language') }}" onchange="window.location.href=this.value">
+                  <option value="{{ url_for('core.set_language', lang='en') }}" {% if current_language == 'en' %}selected{% endif %}>EN</option>
+                  <option value="{{ url_for('core.set_language', lang='de') }}" {% if current_language == 'de' %}selected{% endif %}>DE</option>
+                  <option value="{{ url_for('core.set_language', lang='fr') }}" {% if current_language == 'fr' %}selected{% endif %}>FR</option>
+                  <option value="{{ url_for('core.set_language', lang='es') }}" {% if current_language == 'es' %}selected{% endif %}>ES</option>
+                  <option value="{{ url_for('core.set_language', lang='ja') }}" {% if current_language == 'ja' %}selected{% endif %}>JA</option>
+                  <option value="{{ url_for('core.set_language', lang='zh') }}" {% if current_language == 'zh' %}selected{% endif %}>ZH</option>
+              </select>
+          </div>
+
           <div class="user-menu">
             {% if is_guest %}
-                Guest Mode
-                <a href="{{ url_for('core.login') }}" style="margin-left: 8px; color: var(--primary-color); font-size: 12px; text-decoration: underline;">Login</a>
+                {{ _('Guest Mode') }}
+                <a href="{{ url_for('core.login') }}" style="margin-left: 8px; color: var(--primary-color); font-size: 12px; text-decoration: underline;">{{ _('Login') }}</a>
             {% elif not SINGLE_USER_MODE and current_user.is_authenticated %}
                 {{ current_user.username }}
                 {% if current_user.is_admin %}
                 <a href="{{ url_for('tools.admin_users') }}" style="margin-left: 8px; color: var(--primary-color); font-size: 12px; text-decoration: underline;">Users</a>
                 {% endif %}
                 <form action="{{ url_for('core.logout') }}" method="post" style="display:inline; margin-left:5px;" onsubmit="sessionStorage.removeItem('selectedLocation');">
-                    <button type="submit" style="background:none; border:none; color:var(--primary-color); cursor:pointer; padding:0; text-decoration:underline; font-size:12px;">Logout</button>
+                    <button type="submit" style="background:none; border:none; color:var(--primary-color); cursor:pointer; padding:0; text-decoration:underline; font-size:12px;">{{ _('Logout') }}</button>
                 </form>
             {% elif SINGLE_USER_MODE %}
                 &nbsp;
@@ -175,6 +353,26 @@
 
     {% block header_content %}{% endblock %}
 
+    {% if translation_status.get(current_language, 'auto') == 'auto' %}
+    <div id="translation-banner" class="translation-banner" style="display: none;" data-translation-status="{{ translation_status.get(current_language, 'auto') }}">
+        <div class="translation-banner-content">
+            <svg class="translation-banner-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span class="translation-banner-text">{{ _('The translations for this language are machine-generated and may not be accurate. Help improve them!') }}</span>
+            <a href="#" id="translation-feedback-link" class="translation-banner-link">{{ _('Submit feedback') }} &rarr;</a>
+        </div>
+        <button class="translation-banner-close" aria-label="{{ _('Close') }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+    {% endif %}
+
     {% block body %}{% endblock %}
 
     <script src="{{ url_for('static', filename='js/base.js') }}" defer></script>
@@ -183,10 +381,10 @@
 
     <div id="universal-help-modal" aria-labelledby="help-modal-title">
         <div class="modal-content">
-            <h2 id="help-modal-title" class="sr-only">Help</h2>
+            <h2 id="help-modal-title" class="sr-only">{{ _('Help') }}</h2>
             <div id="help-modal-body" class="help-body"></div>
             <div style="margin-top: 20px; text-align: right;">
-                <button class="action-button" id="help-modal-close-btn">Close</button>
+                <button class="action-button" id="help-modal-close-btn">{{ _('Close') }}</button>
             </div>
         </div>
     </div>
@@ -194,19 +392,19 @@
     <!-- About Modal -->
     <div id="about-modal" aria-labelledby="about-modal-title">
         <div class="modal-content about-modal-content">
-            <button class="about-modal-close" id="about-modal-close-btn" aria-label="Close">
+            <button class="about-modal-close" id="about-modal-close-btn" aria-label="{{ _('Close') }}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
             </button>
             <div class="about-modal-body">
-                <img src="{{ url_for('static', filename='nova-icon-transparent.png') }}" alt="Nova DSO Tracker Logo" class="about-logo">
+                <img src="{{ url_for('static', filename='nova-icon-transparent.png') }}" alt="{{ _('Nova DSO Tracker Logo') }}" class="about-logo">
                 <h1 id="about-modal-title" class="about-title">Nova DSO Tracker</h1>
-                <p class="about-version">Version {{ version }}</p>
-                <p class="about-tagline">A personal project born from a passion for astronomy and astrophotography.</p>
-                <p class="about-description">Nova DSO Tracker helps amateur astronomers plan observation sessions, calculating and visualizing altitude and azimuth of deep-sky objects, tracking Moon position and phase, and identifying optimal viewing windows.</p>
-                <p class="about-attribution">Data sourced from SIMBAD; calculations powered by Astropy and Ephem.</p>
+                <p class="about-version">{{ _('Version') }} {{ version }}</p>
+                <p class="about-tagline">{{ _('A personal project born from a passion for astronomy and astrophotography.') }}</p>
+                <p class="about-description">{{ _('Nova DSO Tracker helps amateur astronomers plan observation sessions, calculating and visualizing altitude and azimuth of deep-sky objects, tracking Moon position and phase, and identifying optimal viewing windows.') }}</p>
+                <p class="about-attribution">{{ _('Data sourced from SIMBAD; calculations powered by Astropy and Ephem.') }}</p>
                 <div class="about-links">
                     <a href="https://nova-tracker.com" target="_blank" rel="noopener noreferrer" class="about-link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -214,7 +412,7 @@
                             <line x1="2" y1="12" x2="22" y2="12"></line>
                             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                         </svg>
-                        Visit nova-tracker.com
+                        {{ _('Visit nova-tracker.com') }}
                     </a>
                     <a href="mailto:contact@nova-tracker.com" class="about-link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -224,7 +422,50 @@
                         contact@nova-tracker.com
                     </a>
                 </div>
-                <p class="about-credits">Built by Anton Gutscher</p>
+                <p class="about-credits">{{ _('Built by Anton Gutscher') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Translation Feedback Modal -->
+    <div id="translation-feedback-modal" aria-labelledby="translation-feedback-modal-title">
+        <div class="modal-content translation-feedback-modal-content">
+            <button class="translation-feedback-modal-close" id="translation-feedback-modal-close-btn" aria-label="{{ _('Close') }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <div class="translation-feedback-modal-body">
+                <h2 id="translation-feedback-modal-title" class="translation-feedback-title">{{ _('Translation Feedback') }}</h2>
+                <p class="translation-feedback-subtitle">{{ _('Help us improve the translations for this language.') }}</p>
+
+                <form id="translation-feedback-form">
+                    <div class="form-group">
+                        <label for="feedback-locale">{{ _('Locale') }}</label>
+                        <input type="text" id="feedback-locale" name="locale" readonly value="{{ current_language | default('en') }}" class="feedback-input">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="feedback-term">{{ _('Term / Phrase') }}</label>
+                        <input type="text" id="feedback-term" name="term" class="feedback-input" placeholder="{{ _('The translated term that seems wrong...') }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="feedback-suggestion">{{ _('Suggested Correction') }}</label>
+                        <input type="text" id="feedback-suggestion" name="suggestion" class="feedback-input" placeholder="{{ _('Your suggested translation...') }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="feedback-notes">{{ _('Context / Notes') }} <span class="optional-label">({{ _('optional') }})</span></label>
+                        <textarea id="feedback-notes" name="notes" class="feedback-textarea" rows="3" placeholder="{{ _('Additional context about where this appears or why the correction is needed...') }}"></textarea>
+                    </div>
+
+                    <div class="feedback-buttons">
+                        <button type="submit" class="action-button" id="feedback-submit-btn">{{ _('Submit') }}</button>
+                        <button type="button" class="btn-ghost" id="feedback-cancel-btn">{{ _('Cancel') }}</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

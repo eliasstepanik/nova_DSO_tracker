@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from nova.models import INSTANCE_PATH
 
 # --- App version ---
-APP_VERSION = "5.2.1"
+APP_VERSION = "5.3.0"
 
 # --- Directories ---
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config_templates")
@@ -91,6 +91,16 @@ LATEST_VERSION_INFO = BoundedCache(10)
 rig_data_cache = BoundedCache(500)
 weather_cache = BoundedCache(1000)
 CATALOG_MANIFEST_CACHE = {"data": None, "expires": 0}
+
+# --- Translation status ---
+TRANSLATION_STATUS = {
+    'en': 'validated',  # English is the source language
+    'de': 'validated',  # German translations validated
+    'fr': 'auto',       # French translations auto-generated
+    'zh': 'auto',       # Chinese translations auto-generated
+    'ja': 'auto',       # Japanese translations auto-generated
+    'es': 'auto',       # Spanish translations auto-generated
+}
 
 # --- Telemetry state ---
 _telemetry_startup_once = threading.Event()

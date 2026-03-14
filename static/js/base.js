@@ -106,6 +106,9 @@ window.novaState.fn = Object.assign(existingFn, {
 // ============================================
 
 document.addEventListener("DOMContentLoaded", function () {
+    // --- INITIALIZE TRANSLATION BANNER ---
+    initTranslationBanner();
+
     // --- INITIALIZE THEME TOGGLE BUTTON ---
     const themeToggleBtn = document.getElementById('theme-toggle');
     if (themeToggleBtn) {
@@ -211,11 +214,57 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (notificationSpan) {
                     const repo_url = data.url || 'https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/releases';
                     const primaryColor = (window.stylingUtils && window.stylingUtils.getPrimaryColor) ? window.stylingUtils.getPrimaryColor() : '#83b4c5';
-                    notificationSpan.innerHTML = ' <span style="font-size: 0.8em; font-weight: normal; color: ' + primaryColor + ';">(<a href="' + repo_url + '" target="_blank" style="color: ' + primaryColor + '; text-decoration: none;" >Latest version: v' + data.new_version + '</a>)</span>';
+                    notificationSpan.innerHTML = ' <span style="font-size: 0.8em; font-weight: normal; color: ' + primaryColor + ';">(<a href="' + repo_url + '" target="_blank" style="color: ' + primaryColor + '; text-decoration: none;" >' + window.t('latest_version') + ': v' + data.new_version + '</a>)</span>';
                 }
             }
         })
         .catch(error => console.error("Update check failed:", error));
+
+    // --- INITIALIZE TRANSLATION FEEDBACK MODAL ---
+    if (window.novaState && window.novaState.fn && window.novaState.fn.ModalController) {
+        try {
+            window.novaState.fn.translationFeedbackModal = new window.novaState.fn.ModalController('translation-feedback-modal', {
+                contentId: null,
+                displayStyle: 'flex',
+                visibleClass: 'is-visible',
+                closeOnBackdrop: true,
+                closeOnEscape: true,
+                ariaLabelledBy: 'translation-feedback-modal-title',
+                skipFocus: true
+            });
+            console.log('[base.js] Translation feedback modal controller initialized successfully');
+        } catch (err) {
+            console.error('[base.js] Error initializing translation feedback modal:', err);
+        }
+    }
+
+    // --- WIRE UP TRANSLATION FEEDBACK LINK ---
+    const feedbackLink = document.getElementById('translation-feedback-link');
+    if (feedbackLink) {
+        feedbackLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openTranslationFeedbackModal();
+        });
+    }
+
+    // --- WIRE UP TRANSLATION FEEDBACK FORM ---
+    const feedbackForm = document.getElementById('translation-feedback-form');
+    if (feedbackForm) {
+        feedbackForm.addEventListener('submit', handleTranslationFeedbackSubmit);
+    }
+
+    // --- WIRE UP TRANSLATION FEEDBACK CANCEL BUTTON ---
+    const feedbackCancelBtn = document.getElementById('feedback-cancel-btn');
+    if (feedbackCancelBtn) {
+        feedbackCancelBtn.addEventListener('click', closeTranslationFeedbackModal);
+    }
+
+    // --- WIRE UP TRANSLATION FEEDBACK CLOSE BUTTON ---
+    const feedbackCloseBtn = document.getElementById('translation-feedback-modal-close-btn');
+    if (feedbackCloseBtn) {
+        feedbackCloseBtn.addEventListener('click', closeTranslationFeedbackModal);
+    }
 });
 
 // --- HELP MODAL FUNCTIONS ---
@@ -232,7 +281,7 @@ function openHelp(topicId) {
     }
 
     // Reset and show loading state
-    body.innerHTML = '<div style="text-align:center; padding: 40px; color: ' + ((window.stylingUtils && window.stylingUtils.getColor) ? window.stylingUtils.getColor('--text-secondary', '#666') : '#666') + ';">Loading help content...</div>';
+    body.innerHTML = '<div style="text-align:center; padding: 40px; color: ' + ((window.stylingUtils && window.stylingUtils.getColor) ? window.stylingUtils.getColor('--text-secondary', '#666') : '#666') + ';">' + window.t('loading_help') + '</div>';
 
     // Try to use ModalController if available
     const controller = window.novaState.fn.helpModal;
@@ -268,12 +317,12 @@ function openHelp(topicId) {
             if (data.html) {
                 body.innerHTML = data.html;
             } else {
-                body.innerHTML = '<p style="color:red">Error: Help content returned empty.</p>';
+                body.innerHTML = '<p style="color:red">' + window.t('help_content_empty') + '</p>';
             }
         })
         .catch(err => {
             console.error('[base.js] Error fetching help content:', err);
-            body.innerHTML = '<p style="color:red">Network Error: Could not load help topic \'' + topicId + '\'.</p>';
+            body.innerHTML = `<p style="color:red">${window.t('help_network_error')} '${topicId}'.</p>`;
         });
 }
 
@@ -338,3 +387,150 @@ window.novaState.fn.closeHelpModal = closeHelpModal;
 // Register about modal functions in novaState
 window.novaState.fn.openAboutModal = openAboutModal;
 window.novaState.fn.closeAboutModal = closeAboutModal;
+
+// --- TRANSLATION FEEDBACK MODAL FUNCTIONS ---
+function openTranslationFeedbackModal() {
+    const modalElement = document.getElementById('translation-feedback-modal');
+
+    if (!modalElement) {
+        console.error('[base.js] Translation feedback modal element not found');
+        return;
+    }
+
+    // Pre-fill the locale field with current language
+    const currentLang = window.NOVA_CONFIG && window.NOVA_CONFIG.language ? window.NOVA_CONFIG.language : 'en';
+    const localeInput = document.getElementById('feedback-locale');
+    if (localeInput) {
+        localeInput.value = currentLang;
+    }
+
+    // Clear form fields except locale
+    document.getElementById('feedback-term').value = '';
+    document.getElementById('feedback-suggestion').value = '';
+    document.getElementById('feedback-notes').value = '';
+
+    const controller = window.novaState.fn.translationFeedbackModal;
+    if (controller) {
+        console.log('[base.js] Using ModalController for translation feedback modal');
+        controller.open();
+    } else {
+        console.log('[base.js] Using DOM fallback for translation feedback modal');
+        modalElement.style.display = 'flex';
+        modalElement.classList.add('is-visible');
+    }
+}
+
+function closeTranslationFeedbackModal() {
+    const controller = window.novaState.fn.translationFeedbackModal;
+
+    if (controller) {
+        controller.close();
+    } else {
+        const modalElement = document.getElementById('translation-feedback-modal');
+        if (modalElement) {
+            modalElement.style.display = 'none';
+            modalElement.classList.remove('is-visible');
+        }
+    }
+}
+
+function handleTranslationFeedbackSubmit(e) {
+    e.preventDefault();
+
+    const termInput = document.getElementById('feedback-term');
+    const suggestionInput = document.getElementById('feedback-suggestion');
+    const notesInput = document.getElementById('feedback-notes');
+    const localeInput = document.getElementById('feedback-locale');
+
+    // Get values
+    const locale = localeInput.value.trim();
+    const term = termInput.value.trim();
+    const suggestion = suggestionInput.value.trim();
+    const notes = notesInput.value.trim();
+
+    // Basic client-side validation
+    if (!term) {
+        showFeedbackError('Please enter the term or phrase that seems wrong.');
+        termInput.focus();
+        return;
+    }
+
+    if (!suggestion) {
+        showFeedbackError('Please provide a suggested correction.');
+        suggestionInput.focus();
+        return;
+    }
+
+    // Build GitHub Issue URL
+    const base = "https://github.com/mrantonSG/nova_DSO_tracker/issues/new";
+    const title = `[Translation Feedback] ${locale} — ${term}`;
+    const body = `**Locale:** ${locale}\n**Term / Phrase:** ${term}\n**Suggested Correction:** ${suggestion}\n**Context / Notes:** ${notes}`;
+    const url = `${base}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+
+    // Open in new tab
+    window.open(url, '_blank');
+
+    // Close the modal after opening the tab
+    closeTranslationFeedbackModal();
+}
+
+// --- TRANSLATION BANNER FUNCTIONS ---
+function initTranslationBanner() {
+    const banner = document.getElementById('translation-banner');
+    if (!banner) return;
+
+    // Get current language from Nova config
+    const currentLang = window.NOVA_CONFIG && window.NOVA_CONFIG.language ? window.NOVA_CONFIG.language : 'en';
+    const sessionStorageKey = 'banner_dismissed_' + currentLang;
+
+    // Check if banner was previously dismissed for this language
+    const isDismissed = sessionStorage.getItem(sessionStorageKey);
+
+    // Show banner only if not dismissed and language has 'auto' status
+    if (!isDismissed && banner.dataset.translationStatus === 'auto') {
+        banner.style.display = 'flex';
+    }
+
+    // Wire up dismiss button
+    const dismissBtn = banner.querySelector('.translation-banner-close');
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', function() {
+            // Hide banner
+            banner.style.display = 'none';
+            // Store dismissal in sessionStorage
+            try {
+                sessionStorage.setItem(sessionStorageKey, 'true');
+            } catch (e) {
+                console.warn('[base.js] sessionStorage not available:', e);
+            }
+        });
+    }
+}
+
+// Clear all translation banner dismiss flags when switching languages
+// This is called before page reload via language selector
+function clearTranslationBannerFlags() {
+    try {
+        // Get all sessionStorage keys that start with 'banner_dismissed_'
+        const keys = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('banner_dismissed_')) {
+                keys.push(key);
+            }
+        }
+        // Remove all banner dismiss flags
+        keys.forEach(function(key) {
+            sessionStorage.removeItem(key);
+        });
+    } catch (e) {
+        console.warn('[base.js] sessionStorage not available:', e);
+    }
+}
+
+// Hook into language selector to clear flags on language change
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.id === 'language-select') {
+        clearTranslationBannerFlags();
+    }
+});;

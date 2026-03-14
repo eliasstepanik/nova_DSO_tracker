@@ -196,10 +196,10 @@
             <li>
                 <div class="item-info">${t.name} (${t.aperture_mm}mm / ${t.focal_length_mm}mm)${createIndicator(t)}</div>
                 <div class="item-actions">
-                    <button type="button" class="edit-btn" onclick="populateComponentFormForEdit('telescope', '${t.id}')">Edit</button>
+                    <button type="button" class="edit-btn" onclick="populateComponentFormForEdit('telescope', '${t.id}')">${window.t('edit')}</button>
                     <form action="${window.NOVA_CONFIG_FORM.urls.deleteComponent}" method="post" onsubmit="return confirm('Deleting a component is permanent and cannot be undone. Are you sure?');">
                         <input type="hidden" name="component_id" value="${t.id}"><input type="hidden" name="component_type" value="telescopes">
-                        <button type="submit" class="delete-btn">Delete</button>
+                        <button type="submit" class="delete-btn">${window.t('delete')}</button>
                     </form>
                 </div>
             </li>`).join('') || '<li>No telescopes defined.</li>';
@@ -208,25 +208,25 @@
             <li>
                 <div class="item-info">${c.name} (${c.pixel_size_um}μm pixel)${createIndicator(c)}</div>
                 <div class="item-actions">
-                    <button type="button" class="edit-btn" onclick="populateComponentFormForEdit('camera', '${c.id}')">Edit</button>
+                    <button type="button" class="edit-btn" onclick="populateComponentFormForEdit('camera', '${c.id}')">${window.t('edit')}</button>
                     <form action="${window.NOVA_CONFIG_FORM.urls.deleteComponent}" method="post" onsubmit="return confirm('Deleting a component is permanent and cannot be undone. Are you sure?');">
                         <input type="hidden" name="component_id" value="${c.id}"><input type="hidden" name="component_type" value="cameras">
-                        <button type="submit" class="delete-btn">Delete</button>
+                        <button type="submit" class="delete-btn">${window.t('delete')}</button>
                     </form>
                 </div>
-            </li>`).join('') || '<li>No cameras defined.</li>';
+            </li>`).join('') || `<li>${window.t('no_cameras_defined')}</li>`;
 
         document.getElementById('reducer-list').innerHTML = reducers_extenders.map(r => `
             <li>
                 <div class="item-info">${r.name} (${r.factor}x)${createIndicator(r)}</div>
                 <div class="item-actions">
-                    <button type="button" class="edit-btn" onclick="populateComponentFormForEdit('reducer_extender', '${r.id}')">Edit</button>
+                    <button type="button" class="edit-btn" onclick="populateComponentFormForEdit('reducer_extender', '${r.id}')">${window.t('edit')}</button>
                     <form action="${window.NOVA_CONFIG_FORM.urls.deleteComponent}" method="post" onsubmit="return confirm('Deleting a component is permanent and cannot be undone. Are you sure?');">
                         <input type="hidden" name="component_id" value="${r.id}"><input type="hidden" name="component_type" value="reducers_extenders">
-                        <button type="submit" class="delete-btn">Delete</button>
+                        <button type="submit" class="delete-btn">${window.t('delete')}</button>
                     </form>
                 </div>
-            </li>`).join('') || '<li>No reducers defined.</li>';
+            </li>`).join('') || `<li>${window.t('no_reducers_defined')}</li>`;
 
         const teleSelect = document.getElementById('tele_select');
         const camSelect = document.getElementById('cam_select');
@@ -234,12 +234,12 @@
         const guideTeleSelect = document.getElementById('guide_telescope_id');
         const guideCamSelect = document.getElementById('guide_camera_id');
 
-        if(teleSelect) teleSelect.innerHTML = '<option value="" disabled selected>-- Select a Telescope --</option>' + telescopes.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-        if(camSelect) camSelect.innerHTML = '<option value="" disabled selected>-- Select a Camera --</option>' + cameras.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-        if(redSelect) redSelect.innerHTML = '<option value="">-- None --</option>' + reducers_extenders.map(r => `<option value="${r.id}">${r.name} (${r.factor}x)</option>`).join('');
+        if(teleSelect) teleSelect.innerHTML = '<option value="" disabled selected>' + window.t('select_telescope') + '</option>' + telescopes.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        if(camSelect) camSelect.innerHTML = '<option value="" disabled selected>' + window.t('select_camera') + '</option>' + cameras.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        if(redSelect) redSelect.innerHTML = '<option value="">' + window.t('none') + '</option>' + reducers_extenders.map(r => `<option value="${r.id}">${r.name} (${r.factor}x)</option>`).join('');
         // Guide optics dropdowns (same telescopes/cameras lists)
-        if(guideTeleSelect) guideTeleSelect.innerHTML = '<option value="">-- None --</option>' + telescopes.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
-        if(guideCamSelect) guideCamSelect.innerHTML = '<option value="">-- None --</option>' + cameras.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        if(guideTeleSelect) guideTeleSelect.innerHTML = '<option value="">' + window.t('none') + '</option>' + telescopes.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        if(guideCamSelect) guideCamSelect.innerHTML = '<option value="">' + window.t('none') + '</option>' + cameras.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 
         const rigList = document.getElementById('existing-rigs-list');
         rigList.innerHTML = rigsSorted.map(rig => {
@@ -249,9 +249,9 @@
 
             // Build spec lines: Telescope, Camera, Reducer, Guiding (if configured)
             let specLines = [];
-            specLines.push(`Telescope: ${tele ? tele.name : 'N/A'}`);
-            specLines.push(`Camera: ${cam ? cam.name : 'N/A'}`);
-            if (red) specLines.push(`Reducer/Extender: ${red.name}`);
+            specLines.push(`${window.t('telescope')}: ${tele ? tele.name : 'N/A'}`);
+            specLines.push(`${window.t('camera')}: ${cam ? cam.name : 'N/A'}`);
+            if (red) specLines.push(`${window.t('reducer_extender')}: ${red.name}`);
             // Add guiding line if guide equipment is configured
             if (rig.guide_camera_id) {
                 let guidingDisplay;
@@ -260,14 +260,14 @@
                 } else {
                     guidingDisplay = `${rig.guide_telescope_name || 'guide scope'} + ${rig.guide_camera_name || 'guide camera'}`;
                 }
-                specLines.push(`Guiding: ${guidingDisplay}`);
+                specLines.push(`${window.t('guiding')}: ${guidingDisplay}`);
             }
             const specHtml = `<small>${specLines.join('<br>')}</small>`;
 
             // FL/scale/FOV block
             let opticsHtml = '';
             if (rig.image_scale) {
-                opticsHtml = `<hr style="margin: 0.5em 0; border-color: ${(window.stylingUtils && window.stylingUtils.getColor) ? window.stylingUtils.getColor('--border-light', '#f5f5f5') : '#f5f5f5'};"><small style="color: ${(window.stylingUtils && window.stylingUtils.getColor) ? window.stylingUtils.getColor('--text-secondary', '#666') : '#666'};">Effective FL: ${rig.effective_focal_length.toFixed(0)} mm (f/${rig.f_ratio.toFixed(1)})<br>Image Scale: ${rig.image_scale.toFixed(2)}"/px<br>Field of View: ${rig.fov_w_arcmin.toFixed(1)}' x ${rig.fov_h_arcmin.toFixed(1)}'</small>`;
+                opticsHtml = `<hr style="margin: 0.5em 0; border-color: ${(window.stylingUtils && window.stylingUtils.getColor) ? window.stylingUtils.getColor('--border-light', '#f5f5f5') : '#f5f5f5'};"><small style="color: ${(window.stylingUtils && window.stylingUtils.getColor) ? window.stylingUtils.getColor('--text-secondary', '#666') : '#666'};">${window.t('effective_fl')}: ${rig.effective_focal_length.toFixed(0)} mm (f/${rig.f_ratio.toFixed(1)})<br>${window.t('image_scale')}: ${rig.image_scale.toFixed(2)}"/px<br>${window.t('field_of_view')}: ${rig.fov_w_arcmin.toFixed(1)}' x ${rig.fov_h_arcmin.toFixed(1)}'</small>`;
             }
 
             // Dither data attributes for sampling line
@@ -281,10 +281,10 @@
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                             <strong>${rig.rig_name}</strong>
                             <div style="display:flex; gap:6px; flex-shrink:0;">
-                                <button type="button" class="edit-btn" onclick="populateRigFormForEdit('${rig.rig_id}')">Edit</button>
+                                <button type="button" class="edit-btn" onclick="populateRigFormForEdit('${rig.rig_id}')">${window.t('edit')}</button>
                                 <form action="${window.NOVA_CONFIG_FORM.urls.deleteRig}" method="post" onsubmit="return confirm('Are you sure you want to delete the rig \\'${rig.rig_name}\\'?');" style="display:inline;">
                                     <input type="hidden" name="rig_id" value="${rig.rig_id}">
-                                    <button type="submit" class="delete-btn">Delete</button>
+                                    <button type="submit" class="delete-btn">${window.t('delete')}</button>
                                 </form>
                             </div>
                         </div>
@@ -292,7 +292,7 @@
                         <div class="rig-computed">${opticsHtml}</div>
                     </li>`;
         console.log('[CONFIG_FORM] Generated Edit button for rig:', rig.rig_name, 'id:', rig.rig_id);
-        }).join('') || '<li>No rigs configured yet.</li>';
+        }).join('') || `<li>${window.t('no_rigs_configured')}</li>`;
 
         document.getElementById('tele-count').innerText = telescopes.length;
         document.getElementById('cam-count').innerText = cameras.length;
@@ -339,11 +339,11 @@
                 const samplingAvg = seeingAvg / imageScale;
 
                 let text = '', colorClass = '', isOversampled = false;
-                if (samplingAvg > 4.0) { text = `Oversampled: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-oversampled'; isOversampled = true; }
-                else if (samplingAvg > 3.0) { text = `Slightly Oversampled: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-slightly-oversampled'; isOversampled = true; }
-                else if (samplingAvg >= 1.0) { text = `Good Sampling: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-good'; }
-                else if (samplingAvg >= 0.67) { text = `Slightly Undersampled: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-slightly-undersampled'; }
-                else { text = `Undersampled: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-undersampled'; }
+                if (samplingAvg > 4.0) { text = `${window.t('oversampled')}: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-oversampled'; isOversampled = true; }
+                else if (samplingAvg > 3.0) { text = `${window.t('slightly_oversampled')}: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-slightly-oversampled'; isOversampled = true; }
+                else if (samplingAvg >= 1.0) { text = `${window.t('good_sampling')}: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-good'; }
+                else if (samplingAvg >= 0.67) { text = `${window.t('slightly_undersampled')}: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-slightly-undersampled'; }
+                else { text = `${window.t('undersampled')}: ${samplingAvg.toFixed(1)} px/FWHM`; colorClass = 'sampling-undersampled'; }
 
                 const samplingEl = document.createElement('div');
                 samplingEl.className = `rig-sampling-line ${colorClass}`;
@@ -499,9 +499,9 @@
             })
             .catch(error => {
                 console.error("Error fetching shared items:", error);
-                document.getElementById('shared-objects-body').innerHTML = '<tr><td colspan="8" style="text-align: center; color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + ';">Error loading shared items.</td></tr>';
-                document.getElementById('shared-components-body').innerHTML = '<tr><td colspan="4" style="text-align: center; color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + ';">Error loading shared items.</td></tr>';
-                document.getElementById('shared-views-body').innerHTML = '<tr><td colspan="4" style="text-align: center; color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + ';">Error loading shared items.</td></tr>';
+                document.getElementById('shared-objects-body').innerHTML = '<tr><td colspan="8" style="text-align: center; color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + ';">' + window.t('error_loading_shared') + '</td></tr>';
+                document.getElementById('shared-components-body').innerHTML = '<tr><td colspan="4" style="text-align: center; color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + ';">' + window.t('error_loading_shared') + '</td></tr>';
+                document.getElementById('shared-views-body').innerHTML = '<tr><td colspan="4" style="text-align: center; color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + ';">' + window.t('error_loading_shared') + '</td></tr>';
             });
     }
 
@@ -511,7 +511,7 @@
         }
 
         button.disabled = true;
-        button.textContent = 'Importing...';
+        button.textContent = window.t('importing');
 
         fetch('/api/import_item', {
             method: 'POST',
@@ -522,16 +522,16 @@
         .then(data => {
             if (data.status === 'success') {
                 alert(data.message);
-                button.textContent = 'Imported';
+                button.textContent = window.t('imported');
                 button.className = 'imported-button'; // Change class
 
                 // Update the row's status for filtering
                 const row = button.closest('tr');
                 if(row) row.dataset.status = 'imported';
             } else {
-                alert(`Error: ${data.message}`);
+                alert(`${window.t('error')}: ${data.message}`);
                 button.disabled = false;
-                button.textContent = 'Import';
+                button.textContent = window.t('import_btn');
             }
         })
         .catch(error => {
@@ -543,7 +543,7 @@
     }
 
     function showSharedNotes(objectName, notesHtml) {
-        document.getElementById('notes-modal-title').textContent = `Shared Notes for ${objectName}`;
+        document.getElementById('notes-modal-title').textContent = `${window.t('shared_notes_for')} ${objectName}`;
         document.getElementById('notes-modal-content').innerHTML = notesHtml; // Notes are pre-sanitized by the backend
         document.getElementById('notes-modal').classList.add('is-visible');
     }
@@ -697,7 +697,7 @@
                 })
                 .catch(err => {
                     // This catches network failures or the error thrown above
-                    alert(`${entityName} import failed: ${err.message}`);
+                    alert(`${entityName} ${window.t('import_failed')}: ${err.message}`);
                     if (msgContainer) msgContainer.innerHTML = '';
                     fileInput.value = ""; // Clear on failure
                 });
@@ -737,7 +737,7 @@
         })
         .catch(err => {
             console.error("Upload failed:", err);
-            alert("Upload failed. See console.");
+            alert(window.t('upload_failed'));
             btn.textContent = originalText;
             btn.disabled = false;
         });
@@ -807,7 +807,7 @@
         })
         .catch(err => {
             console.error(err);
-            alert("Network error saving object.");
+            alert(window.t('network_error_saving'));
             btn.textContent = originalText;
             btn.disabled = false;
         });
@@ -964,7 +964,7 @@
             .catch(error => {
                 console.error("Trix upload network error:", error);
                 event.attachment.remove();
-                alert("Image upload failed: Network error. See console for details.");
+                alert(window.t('image_upload_failed_network'));
             });
         }
         document.addEventListener("trix-attachment-add", handleTrixAttachmentAdd);
@@ -1121,7 +1121,7 @@
         const textarea = document.getElementById(textareaId);
         if (!textarea) {
             console.error('[CONFIG_FORM] parseStellariumHorizon: Target textarea not found:', textareaId);
-            alert('Error: Could not find the horizon mask field. Please refresh the page and try again.');
+            alert(window.t('horizon_field_not_found'));
             fileInput.value = '';
             return;
         }
@@ -1132,7 +1132,7 @@
 
         reader.onerror = function(e) {
             console.error('[CONFIG_FORM] FileReader error:', e.target.error);
-            alert('Error reading file. Please try again or select a different file.');
+            alert(window.t('error_reading_file'));
             fileInput.value = '';
         };
 
@@ -1155,7 +1155,7 @@
 
             if (points.length === 0) {
                 console.warn('[CONFIG_FORM] No valid horizon data found in file');
-                alert('No valid horizon data found in the file. Expected format: azimuth altitude (one pair per line).');
+                alert(window.t('no_valid_horizon_data'));
                 fileInput.value = '';
                 return;
             }

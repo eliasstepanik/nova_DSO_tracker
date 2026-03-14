@@ -73,6 +73,7 @@ from flask_login import (
 )
 from flask import session
 from flask import Flask, send_from_directory, has_request_context
+from flask_babel import Babel, gettext as _
 import math
 from astroquery.simbad import Simbad
 from astropy.coordinates import (
@@ -3914,6 +3915,38 @@ app.config["WTF_CSRF_CHECK_DEFAULT"] = (
     False  # Don't enforce globally; protect routes explicitly
 )
 
+# --- Internationalization (i18n) with Flask-Babel ---
+app.config['BABEL_DEFAULT_LOCALE'] = 'en'
+app.config['BABEL_SUPPORTED_LOCALES'] = ['en', 'de', 'fr', 'es', 'ja', 'zh']
+# Translations are at project root (../translations relative to nova/ package)
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = os.path.join(os.path.dirname(__file__), '..', 'translations')
+babel = Babel()  # Create without app - will init with locale_selector below
+
+def get_locale():
+    """
+    Locale selector for Flask-Babel.
+    Reads language preference from user config or session, falls back to browser preference or 'en'.
+    """
+    # Try user preference first (set by load_global_request_context)
+    if hasattr(g, 'user_config') and g.user_config:
+        user_lang = g.user_config.get('language')
+        if user_lang and user_lang in app.config['BABEL_SUPPORTED_LOCALES']:
+            return user_lang
+    # Try session (for guest users)
+    session_lang = session.get('language')
+    if session_lang and session_lang in app.config['BABEL_SUPPORTED_LOCALES']:
+        return session_lang
+    # Fall back to browser preference
+    browser_locale = request.accept_languages.best_match(app.config['BABEL_SUPPORTED_LOCALES'])
+    if browser_locale:
+        return browser_locale
+    # Default
+    return 'en'
+
+# Initialize Babel with the app and locale_selector in one call
+babel.init_app(app, locale_selector=get_locale)
+app.jinja_env.globals['get_locale'] = get_locale
+
 # --- Performance: gzip response compression ---
 from flask_compress import Compress
 
@@ -4957,12 +4990,12 @@ def get_plot_data(object_name):
     ra = data.get("RA (hours)")
     dec = data.get("DEC (deg)", data.get("DEC (degrees)"))
     if ra is None or dec is None:
-        return jsonify({"error": "RA/DEC missing for object."}), 404
+        return jsonify({"error": _("RA/DEC missing for object.")}), 404
     try:
         ra = float(ra)
         dec = float(dec)
     except (ValueError, TypeError):
-        return jsonify({"error": "Invalid RA/DEC format for object."}), 400
+        return jsonify({"error": _("Invalid RA/DEC format for object.")}), 400
 
     # --- 2) Read params with SAFE fallbacks ---
     default_lat = getattr(g, "lat", None)
@@ -5258,7 +5291,7 @@ def get_observable_objects():
         pass
 
     if lat is None or lon is None:
-        return jsonify({"error": "Location not configured", "objects": []}), 400
+        return jsonify({"error": _("Location not configured"), "objects": []}), 400
 
     # Determine date for calculations - use passed-in graph date, not server's current time
     local_tz = pytz.timezone(tz_name)
@@ -5296,7 +5329,7 @@ def get_observable_objects():
 
         user = db.query(DbUser).filter_by(username=username).one_or_none()
         if not user:
-            return jsonify({"error": "User not found", "objects": []}), 401
+            return jsonify({"error": _("User not found"), "objects": []}), 401
 
         # Query active objects with valid coordinates
         active_objects = (
@@ -7303,7 +7336,7 @@ def project_detail(project_id):
                     project.final_image_file = None
                 except Exception as e:
                     print(f"Error deleting final image: {e}")
-                    flash("Error deleting old image.", "warning")
+                    flash(_("Error deleting old image."), "warning")
 
             # 2. Handle image upload (returns new/existing filename)
             new_filename = _handle_project_image_upload(
@@ -7347,7 +7380,7 @@ def project_detail(project_id):
                     )
 
             db.commit()
-            flash("Project updated successfully.", "success")
+            flash(_("Project updated successfully."), "success")
 
             # --- Redirect Logic (Updated) ---
             # Check if we should return to a specific page (like the Journal tab)
@@ -7380,7 +7413,7 @@ def project_detail(project_id):
         return redirect(url_for("core.index"))
     except Exception as e:
         db.rollback()
-        flash(f"An error occurred: {e}", "error")
+        flash(_("An error occurred: %(error)s", error=e), "error")
         print(f"Error in project_detail route: {e}")
         traceback.print_exc()
         return redirect(url_for("core.index"))
@@ -7560,7 +7593,7 @@ def add_component():
 
         db.add(new_comp)
         db.commit()
-        flash(f"Component '{new_comp.name}' added successfully.", "success")
+        flash(_("Component '%(component_name)s' added successfully.", component_name=new_comp.name), "success")
     except Exception as e:
         db.rollback()
         flash(f"Error adding component: {e}", "error")
@@ -7603,7 +7636,7 @@ def update_component():
             comp.factor = float(form.get("factor"))
 
         db.commit()
-        flash(f"Component '{comp.name}' updated successfully.", "success")
+        flash(_("Component '%(component_name)s' updated successfully.", component_name=comp.name), "success")
     except Exception as e:
         db.rollback()
         flash(f"Error updating component: {e}", "error")
@@ -7671,7 +7704,7 @@ def add_rig():
             )
             db.add(new_rig)
             rig = new_rig  # Reference the new object for update below
-            flash(f"Rig '{new_rig.rig_name}' created successfully.", "success")
+            flash(_("Rig '%(rig_name)s' created successfully.", rig_name=new_rig.rig_name), "success")
 
         # 3. Persist calculated values to the Rig object (for both ADD and UPDATE)
         rig.effective_focal_length = efl
@@ -7713,12 +7746,12 @@ def delete_component():
         )
 
         if in_use:
-            flash("Cannot delete component: It is used in at least one rig.", "error")
+            flash(_("Cannot delete component: It is used in at least one rig."), "error")
         else:
             comp_to_delete = db.get(Component, comp_id)
             db.delete(comp_to_delete)
             db.commit()
-            flash("Component deleted successfully.", "success")
+            flash(_("Component deleted successfully."), "success")
     except Exception as e:
         db.rollback()
         flash(f"Error deleting component: {e}", "error")
@@ -7735,7 +7768,7 @@ def delete_rig():
         rig_to_delete = db.get(Rig, rig_id)
         db.delete(rig_to_delete)
         db.commit()
-        flash("Rig deleted successfully.", "success")
+        flash(_("Rig deleted successfully."), "success")
     except Exception as e:
         db.rollback()
         flash(f"Error deleting rig: {e}", "error")
@@ -7983,7 +8016,7 @@ def journal_add():
                 parsed_date_utc = datetime.strptime(session_date_str, "%Y-%m-%d").date()
             except (ValueError, TypeError):
                 # This is the new error handling: flash and redirect
-                flash("Invalid date format.", "error")
+                flash(_("Invalid date format."), "error")
                 target_object_id = request.form.get("target_object_id")
 
                 # Redirect back to the object's page where the form was
@@ -8325,7 +8358,7 @@ def journal_edit(session_id):
         try:
             parsed_date_utc = datetime.strptime(session_date_str, "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            flash("Invalid date format.", "error")
+            flash(_("Invalid date format."), "error")
 
             # Redirect back to the graph view for this session
             return redirect(
@@ -8690,7 +8723,7 @@ def add_project_from_journal():
         goals = request.form.get("goals")
 
         if not name:
-            flash("Project name is required.", "error")
+            flash(_("Project name is required."), "error")
             return redirect(
                 url_for(
                     "core.graph_dashboard",
@@ -8702,7 +8735,7 @@ def add_project_from_journal():
 
         existing = db.query(Project).filter_by(user_id=user.id, name=name).first()
         if existing:
-            flash(f"A project named '{name}' already exists.", "error")
+            flash(_("A project named '%(project_name)s' already exists.", project_name=name), "error")
             return redirect(
                 url_for(
                     "core.graph_dashboard",
@@ -8739,7 +8772,7 @@ def add_project_from_journal():
         if should_trigger_outlook:
             trigger_outlook_update_for_user(username)
 
-        flash(f"Project '{name}' created successfully.", "success")
+        flash(_("Project '%(project_name)s' created successfully.", project_name=name), "success")
 
         # Build redirect args explicitly to ensure clean URL construction
         redirect_args = {
@@ -8808,7 +8841,7 @@ def journal_duplicate(session_id):
         db.add(new_session)
         db.commit()
 
-        flash("Session duplicated successfully.", "success")
+        flash(_("Session duplicated successfully."), "success")
 
         # Redirect to Graph Dashboard with 'edit=true' to open the form immediately
         return redirect(
@@ -8850,7 +8883,7 @@ def journal_delete(session_id):
 
         db.delete(session_to_delete)
         db.commit()
-        flash("Journal entry deleted successfully.", "success")
+        flash(_("Journal entry deleted successfully."), "success")
         if object_name_redirect:
             return redirect(
                 url_for("core.graph_dashboard", object_name=object_name_redirect)
@@ -9268,6 +9301,52 @@ def logout():
     session.clear()  # Optional: reset session if needed
     flash("Logged out successfully!", "success")
     return redirect(url_for("core.login"))
+
+
+
+@core_bp.route('/set_language/<lang>')
+def set_language(lang):
+    """Set the user's preferred language and redirect back."""
+    # Validate the language is supported
+    supported_locales = app.config.get('BABEL_SUPPORTED_LOCALES', ['en'])
+    if lang not in supported_locales:
+        flash(_("Language '%(lang)s' is not supported.", lang=lang), "error")
+        return redirect(request.referrer or url_for('core.index'))
+
+    # Get the current user
+    if not hasattr(g, 'db_user') or not g.db_user:
+        # For guest users, just set session and redirect
+        session['language'] = lang
+        return redirect(request.referrer or url_for('core.index'))
+
+    # Save to UiPref.json_blob for authenticated users
+    db = get_db()
+    try:
+        prefs = db.query(UiPref).filter_by(user_id=g.db_user.id).first()
+        if not prefs:
+            prefs = UiPref(user_id=g.db_user.id, json_blob='{}')
+            db.add(prefs)
+
+        # Load existing settings, add language, save back
+        try:
+            settings = json.loads(prefs.json_blob or '{}')
+        except json.JSONDecodeError:
+            settings = {}
+
+        settings['language'] = lang
+        prefs.json_blob = json.dumps(settings, ensure_ascii=False)
+        db.commit()
+
+        # Update g.user_config for current request
+        if hasattr(g, 'user_config'):
+            g.user_config['language'] = lang
+
+    except Exception as e:
+        db.rollback()
+        print(f"[SET_LANGUAGE] Error saving language preference: {e}")
+
+    # Redirect back to the previous page
+    return redirect(request.referrer or url_for('core.index'))
 
 
 def get_static_cache_key(obj_name, date_str, location):
@@ -9711,7 +9790,7 @@ def download_config():
 
     except Exception as e:
         db.rollback()
-        flash(f"Error generating config file: {e}", "error")
+        flash(_("Error generating config file: %(error)s", error=e), "error")
         traceback.print_exc()  # Log the full error to the console
         return redirect(url_for("core.config_form"))
 
@@ -9863,7 +9942,7 @@ def download_journal():
 
     except Exception as e:
         db.rollback()
-        flash(f"Error generating journal file: {e}", "error")
+        flash(_("Error generating journal file: %(error)s", error=e), "error")
         traceback.print_exc()  # Log the full error to the console
         return redirect(url_for("core.config_form"))
 
@@ -10173,7 +10252,7 @@ def import_catalog(pack_id):
     except Exception as e:
         db.rollback()
         print(f"[CATALOG IMPORT] Error importing catalog pack '{pack_id}': {e}")
-        flash("Catalog import failed due to an internal error.", "error")
+        flash(_("Catalog import failed due to an internal error."), "error")
 
     return redirect(url_for("core.config_form"))
 
@@ -10456,7 +10535,7 @@ def search_object():
     # Expect JSON input with the object identifier.
     object_name = request.json.get("object")
     if not object_name:
-        return jsonify({"status": "error", "message": "No object specified."}), 400
+        return jsonify({"status": "error", "message": _("No object specified.")}), 400
 
     data = get_ra_dec(object_name)
     if data and data.get("RA (hours)") is not None:
@@ -10668,7 +10747,7 @@ def fetch_object_details():
     req = request.get_json()
     object_name = req.get("object")
     if not object_name:
-        return jsonify({"status": "error", "message": "No object specified."}), 400
+        return jsonify({"status": "error", "message": _("No object specified.")}), 400
 
     try:
         fetched = nova_data_fetcher.get_astronomical_data(object_name)
@@ -10848,7 +10927,7 @@ def update_object():
         )
 
         if not obj:
-            return jsonify({"status": "error", "message": "Object not found"}), 404
+            return jsonify({"status": "error", "message": _("Object not found")}), 404
 
         # Update all fields from the payload
         obj.common_name = data.get("name")
@@ -11049,13 +11128,13 @@ def fetch_all_details():
 
         if modified:
             db.commit()
-            flash("Fetched and saved missing object details.", "success")
+            flash(_("Fetched and saved missing object details."), "success")
         else:
-            flash("No missing data found or no updates needed.", "info")
+            flash(_("No missing data found or no updates needed."), "info")
 
     except Exception as e:
         db.rollback()
-        flash(f"An error occurred during data fetching: {e}", "error")
+        flash(_("An error occurred during data fetching: %(error)s", error=e), "error")
 
     return redirect(url_for("core.config_form"))
 
@@ -11543,7 +11622,8 @@ def get_help_image(filename):
 @permission_required("settings.view")
 def get_help_content(topic_id):
     """
-    Reads a markdown file from help_docs/, converts it to HTML, and returns it.
+    Reads a markdown file from help_docs/{locale}/, converts it to HTML, and returns it.
+    Falls back to English if the localized file doesn't exist.
     """
     # 1. Sanitize input to prevent directory traversal
     safe_topic = "".join([c for c in topic_id if c.isalnum() or c in "_-"])
@@ -11551,7 +11631,11 @@ def get_help_content(topic_id):
     # 2. Build file path
     file_path = os.path.join(_project_root, "help_docs", f"{safe_topic}.md")
 
-    # 3. Check if file exists
+    # 3. Fallback to English if localized file doesn't exist
+    if not os.path.exists(file_path):
+        file_path = os.path.join(_project_root, 'help_docs', 'en', f'{safe_topic}.md')
+
+    # 4. Check if file exists (even after fallback)
     if not os.path.exists(file_path):
         return jsonify(
             {
@@ -11560,7 +11644,7 @@ def get_help_content(topic_id):
             }
         ), 404
 
-    # 4. Read and convert
+    # 5. Read and convert
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             text = f.read()
@@ -13192,7 +13276,7 @@ def config_form():
 
     except Exception as e:
         db.rollback()
-        flash(f"A database error occurred: {e}", "error")
+        flash(_("A database error occurred: %(error)s", error=e), "error")
         traceback.print_exc()
         return redirect(url_for("core.index"))
 
@@ -13240,7 +13324,7 @@ def update_project():
 
             return jsonify({"status": "success"})
         else:
-            return jsonify({"status": "error", "error": "Object not found."}), 404
+            return jsonify({"status": "error", "error": _("Object not found.")}), 404
 
     except Exception as e:
         db.rollback()
@@ -13272,7 +13356,7 @@ def update_project_active():
                 {"status": "success", "active": obj_to_update.active_project}
             )
         else:
-            return jsonify({"status": "error", "error": "Object not found."}), 404
+            return jsonify({"status": "error", "error": _("Object not found.")}), 404
     except Exception as e:
         db.rollback()
         return jsonify({"status": "error", "error": str(e)}), 500
@@ -14881,7 +14965,7 @@ def download_rig_config():
 
     except Exception as e:
         db.rollback()
-        flash(f"Error generating rig config: {e}", "error")
+        flash(_("Error generating rig config: %(error)s", error=e), "error")
         traceback.print_exc()  # Log the full error to the console
         return redirect(url_for("core.config_form"))
 
@@ -15009,9 +15093,9 @@ def import_journal_photos():
         )
 
     except zipfile.BadZipFile:
-        flash("Import failed: The ZIP file appears to be corrupted.", "error")
+        flash(_("Import failed: The ZIP file appears to be corrupted."), "error")
     except Exception as e:
-        flash(f"An unexpected error occurred during import: {e}", "error")
+        flash(_("An unexpected error occurred during import: %(error)s", error=e), "error")
 
     return redirect(url_for("core.config_form"))
 
@@ -15188,10 +15272,10 @@ def import_rig_config():
             # === END REFACTOR ===
 
         except (yaml.YAMLError, Exception) as e:
-            flash(f"Error importing rigs file: {e}", "error")
+            flash(_("Error importing rigs file: %(error)s", error=e), "error")
 
     else:
-        flash("Invalid file type. Please upload a .yaml or .yml file.", "error")
+        flash(_("Invalid file type. Please upload a .yaml or .yml file."), "error")
 
     return redirect(url_for("core.config_form"))
 
@@ -16419,7 +16503,7 @@ def export_yaml_for_user(username):
         return redirect(url_for("core.index"))
     ok = export_user_to_yaml(username, out_dir=CONFIG_DIR)
     if not ok:
-        flash("Export failed (no such user or empty data).", "error")
+        flash(_("Export failed (no such user or empty data)."), "error")
         return redirect(url_for("core.index"))
     # Package into a ZIP so users get all three files at once
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -16458,7 +16542,7 @@ def import_yaml_for_user():
     """
     username = request.form.get("username") or ("default" if SINGLE_USER_MODE else None)
     if not username:
-        flash("Username is required in multi-user mode.", "error")
+        flash(_("Username is required in multi-user mode."), "error")
         return redirect(url_for("core.index"))
 
     # Basic guard: only allow importing for self unless admin
@@ -16475,7 +16559,7 @@ def import_yaml_for_user():
         rigs = request.files.get("rigs_file")
         jrn = request.files.get("journal_file")
         if not (cfg and rigs and jrn):
-            flash("Please provide config, rigs, and journal YAML files.", "error")
+            flash(_("Please provide config, rigs, and journal YAML files."), "error")
             return redirect(url_for("core.index"))
 
         # Persist to temp paths
@@ -16501,12 +16585,12 @@ def import_yaml_for_user():
                 pass
 
         if ok:
-            flash("Import completed successfully!", "success")
+            flash(_("Import completed successfully!"), "success")
         else:
-            flash("Import failed. See server logs for details.", "error")
+            flash(_("Import failed. See server logs for details."), "error")
     except Exception as e:
         print(f"[IMPORT] ERROR: {e}")
-        flash("Import crashed. Check logs.", "error")
+        flash(_("Import crashed. Check logs."), "error")
     return redirect(url_for("core.index"))
 
 
@@ -16517,9 +16601,9 @@ def import_yaml_for_user():
 def repair_db_now():
     try:
         repair_journals(dry_run=False)
-        flash("Database repair completed.", "success")
+        flash(_("Database repair completed."), "success")
     except Exception as e:
-        flash(f"Repair failed: {e}", "error")
+        flash(_("Repair failed: %(error)s", error=e), "error")
     return redirect(url_for("core.index"))
 
 
@@ -16553,7 +16637,7 @@ if not SINGLE_USER_MODE:
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         if not username or not password:
-            flash("Username and password are required.", "error")
+            flash(_("Username and password are required."), "error")
             return redirect(url_for("tools.admin_users"))
         db_sess = SessionLocal()
         try:

@@ -467,14 +467,14 @@
 <div id="inspiration-tab-content" style="display:none;">
     <div id="inspiration-controls" style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
         <button type="button" data-action="refresh-inspiration" class="btn-accent-light">
-            ↻ Refresh Suggestions
+            ↻ {{ _('Refresh Suggestions') }}
         </button>
     </div>
 
     <div id="inspiration-wrapper">
         <div id="inspiration-grid" class="inspiration-grid"></div>
         <div id="inspiration-loading" style="display:none; text-align:center; padding:40px; color:var(--text-tertiary);">
-            Processing targets...
+            {{ _('Processing targets...') }}
         </div>
     </div>
 </div>
@@ -492,17 +492,17 @@
                 <div id="modal-text" class="insp-modal-text"></div>
 
                 <div class="insp-data-grid">
-                    <div class="insp-data-item"><strong>Max Altitude</strong><span id="modal-alt"></span></div>
-                    <div class="insp-data-item"><strong>Transit Time</strong><span id="modal-transit"></span></div>
-                    <div class="insp-data-item"><strong>Duration</strong><span id="modal-dur"></span></div>
-                    <div class="insp-data-item"><strong>Constellation</strong><span id="modal-const"></span></div>
+                    <div class="insp-data-item"><strong>{{ _('Max Altitude') }}</strong><span id="modal-alt"></span></div>
+                    <div class="insp-data-item"><strong>{{ _('Transit Time') }}</strong><span id="modal-transit"></span></div>
+                    <div class="insp-data-item"><strong>{{ _('Duration') }}</strong><span id="modal-dur"></span></div>
+                    <div class="insp-data-item"><strong>{{ _('Constellation') }}</strong><span id="modal-const"></span></div>
                 </div>
 
                 <div class="insp-modal-footer">
-                    <div id="modal-attribution" class="modal-attribution">Source: Wiki</div>
+                    <div id="modal-attribution" class="modal-attribution">{{ _('Source: Wiki') }}</div>
                     <div style="display:flex; gap:10px; flex-shrink: 0;">
-                        <button class="btn-close-modal" data-action="close-inspiration-modal">Close</button>
-                        <button class="btn-view-graph" id="modal-graph-btn">View Charts &rarr;</button>
+                        <button class="btn-close-modal" data-action="close-inspiration-modal">{{ _('Close') }}</button>
+                        <button class="btn-view-graph" id="modal-graph-btn">{{ _('View Charts') }} &rarr;</button>
                     </div>
                 </div>
             </div>
@@ -511,6 +511,43 @@
 </div>
 
 <script>
+    const inspirationI18n = {
+        // Existing strings
+        analyzingTargets:  {{ _("Analyzing targets...") | tojson }},
+        noImage:           {{ _("No Image") | tojson }},
+        unknown:           {{ _("unknown") | tojson }},
+        errorRenderGrid:   {{ _("Error rendering grid. Check console.") | tojson }},
+        imageUnavailable:  {{ _("Image unavailable") | tojson }},
+
+        // Empty state strings
+        howToPopulate:     {{ _("How to populate this gallery:") | tojson }},
+        checkFilters:      {{ _("Check Filters:") | tojson }},
+        checkFiltersDesc:  {{ _("Clear filters on the Position tab.") | tojson }},
+        checkDatabase:     {{ _("Check Database:") | tojson }},
+        checkDatabaseDesc: {{ _("Ensure you have objects in Configuration.") | tojson }},
+        visibility:        {{ _("Visibility:") | tojson }},
+        visibilityDesc:    {{ _("We only show objects observable during tonight's session.") | tojson }},
+
+        // Tile stats
+        alt:               {{ _("Alt:") | tojson }},
+        dur:               {{ _("Dur:") | tojson }},
+        hrs:               {{ _("hrs") | tojson }},
+        h:                 {{ _("h") | tojson }},
+        loading:           {{ _("Loading...") | tojson }},
+
+        // Fallback text
+        type:              {{ _("Type:") | tojson }},
+        dso:               {{ _("DSO") | tojson }},
+        locatedIn:         {{ _("Located in") | tojson }},
+        na:                {{ _("N/A") | tojson }},
+
+        // Source attribution
+        source:            {{ _("Source:") | tojson }},
+        sourceWikipedia:   {{ _("Wikipedia") | tojson }},
+        sourceNasa:        {{ _("NASA") | tojson }},
+        sourceDss2:        {{ _("Aladin Sky Atlas / DSS2") | tojson }},
+    };
+
     function getAladinFallbackUrl(ra, dec, sizeArcmin) {
         if (ra == null || dec == null) return null;
         let size = parseFloat(sizeArcmin) || 15;
@@ -556,7 +593,7 @@
         try {
             grid.innerHTML = '';
             loading.style.display = 'block';
-            loading.textContent = "Analyzing targets...";
+            loading.textContent = inspirationI18n.analyzingTargets;
 
             // 1. Get Data (Safety Check)
             let dataSource = window.currentFilteredData;
@@ -583,20 +620,20 @@
                 const isTrueFilterZero = window.isListFiltered && totalDataCount > 0;
 
                 // Dynamic Loading State Handling
-                let iconHtml = '<div class="empty-state-icon">🔭</div>';
-                let title = "No Matching Targets";
-                let reason = "Your current filters (Position Tab) are too restrictive.";
+                let iconHtml = '<div class="empty-state-icon">{{ _("No Matching Targets") }}</div>';
+                let title = "{{ _('No Matching Targets') }}";
+                let reason = "{{ _('Your current filters (Position Tab) are too restrictive.') }}";
 
                 if (!isTrueFilterZero) {
                     if (isGlobalLoading) {
                         // Active Loading State
                         iconHtml = '<div class="insp-spinner"></div>';
-                        title = "Loading Object Database...";
-                        reason = "Please wait while we calculate visibility and fetch data.";
+                        title = "{{ _('Loading Object Database...') }}";
+                        reason = "{{ _('Please wait while we calculate visibility and fetch data.') }}";
                     } else {
-                        // Truly Empty DB State
-                        title = "Database Empty";
-                        reason = "No objects found in your configuration.";
+                        // Truly Empty DB state
+                        title = "{{ _('Database Empty') }}";
+                        reason = "{{ _('No objects found in your configuration.') }}";
                     }
                 }
 
@@ -606,11 +643,11 @@
                         <h3 style="margin: 0 0 10px 0; color: var(--text-primary);">${title}</h3>
                         <p style="margin: 0 0 25px 0;">${reason}</p>
                         <div class="empty-state-box">
-                            <strong style="color:var(--text-primary);">How to populate this gallery:</strong>
+                            <strong style="color:var(--text-primary);">${inspirationI18n.howToPopulate}</strong>
                             <ul style="margin: 10px 0 0 0; padding-left: 20px; color: var(--text-secondary); line-height:1.6;">
-                                <li><strong>Check Filters:</strong> Clear filters on the Position tab.</li>
-                                <li><strong>Check Database:</strong> Ensure you have objects in <em>Configuration</em>.</li>
-                                <li><strong>Visibility:</strong> We only show objects observable during <em>tonight's session</em>.</li>
+                                <li><strong>${inspirationI18n.checkFilters}</strong> ${inspirationI18n.checkFiltersDesc}</li>
+                                <li><strong>${inspirationI18n.checkDatabase}</strong> ${inspirationI18n.checkDatabaseDesc}</li>
+                                <li><strong>${inspirationI18n.visibility}</strong> ${inspirationI18n.visibilityDesc}</li>
                             </ul>
                         </div>
                     </div>`;
@@ -667,10 +704,10 @@
                 banner.innerHTML = `
                     <div style="font-size: 24px;"></div>
                     <div>
-                        <strong>Add Your Own Inspiration!</strong><br>
-                        You are currently seeing automated survey images (DSS2).<br>
-                        Did you know you can display your own astrophotos or favorite reference images here?<br>
-                        <span style="color:var(--text-secondary); font-size:0.9em; margin-top:4px; display:block;">Go to <strong>Configuration &gt; Manage Objects</strong> to add "Inspiration Content" (Image URLs, Credits, Descriptions) to your targets.</span>
+                        <strong>` + window.t('add_own_inspiration') + `</strong><br>
+                        ` + window.t('seeing_automated_survey_images') + `<br>
+                        ` + window.t('display_own_astrophotos') + `<br>
+                        <span style="color:var(--text-secondary); font-size:0.9em; margin-top:4px; display:block;">` + window.t('go_to_config_manage_objects') + `</span>
                     </div>
                     <span class="close-banner" data-action="close-banner">✕</span>
                 `;
@@ -699,10 +736,10 @@
                             <span class="tile-type">${obj.Type || ''}</span>
                         </div>
                         <div class="tile-common-name">${obj['Common Name'] || ''}</div>
-                        <div class="tile-summary skeleton-text">Loading...</div>
+                        <div class="tile-summary skeleton-text">${inspirationI18n.loading}</div>
                         <div class="tile-stats">
-                            <div class="tile-stat-pill">Alt: ${obj['Max Altitude (°)']}</div>
-                            <div class="tile-stat-pill">Dur: ${Math.round((parseFloat(obj['Observable Duration (min)'])||0)/60*1)/1}h</div>
+                            <div class="tile-stat-pill">${inspirationI18n.alt} ${obj['Max Altitude (°)']}</div>
+                            <div class="tile-stat-pill">${inspirationI18n.dur} ${Math.round((parseFloat(obj['Observable Duration (min)'])||0)/60*1)/1}${inspirationI18n.h}</div>
                         </div>
                     </div>
                 `;
@@ -770,14 +807,14 @@
                         badgeEl.style.display = 'block';
                     } else {
                         // No image URL found
-                        tile.querySelector('.tile-image').innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted-alt);">No Image</div>';
+                        tile.querySelector('.tile-image').innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted-alt);">' + inspirationI18n.noImage + '</div>';
                         tile.querySelector('.tile-image').classList.remove('skeleton-pulse');
                     }
 
                     if (finalText) {
                         sumEl.textContent = finalText;
                     } else {
-                        sumEl.textContent = `Type: ${obj.Type || 'DSO'}. Located in ${obj.Constellation || 'unknown'}.`;
+                        sumEl.textContent = `${inspirationI18n.type} ${obj.Type || inspirationI18n.dso}. ${inspirationI18n.locatedIn} ${obj.Constellation || inspirationI18n.unknown}.`;
                     }
                     sumEl.classList.remove('skeleton-text');
 
@@ -787,7 +824,7 @@
             }
         } catch (err) {
             console.error("Critical Grid Error:", err);
-            grid.innerHTML = '<div class="empty-state"><p>Error rendering grid. Check console.</p></div>';
+            grid.innerHTML = '<div class="empty-state"><p>' + inspirationI18n.errorRenderGrid + '</p></div>';
             loading.style.display = 'none';
         }
     }
@@ -822,7 +859,7 @@
                 const offlineDiv = document.createElement('div');
                 offlineDiv.className = 'offline-message';
                 offlineDiv.style.cssText = "height:100%; min-height:0; border:none; background:var(--code-bg); display:flex; flex-direction:column; align-items:center; justify-content:center; width: 100%;";
-                offlineDiv.innerHTML = '<div style="font-size:40px; opacity:0.3; margin-bottom:10px; filter: grayscale(1);">📡</div><div style="color:var(--text-quaternary);">Image unavailable</div>';
+                offlineDiv.innerHTML = '<div style="font-size:40px; opacity:0.3; margin-bottom:10px; filter: grayscale(1);">📡</div><div style="color:var(--text-quaternary);">' + inspirationI18n.imageUnavailable + '</div>';
                 imgContainer.appendChild(offlineDiv);
             }
         };
@@ -855,23 +892,23 @@
         document.getElementById('modal-subtitle').textContent = obj['Common Name'] || "";
         document.getElementById('modal-alt').textContent = obj['Max Altitude (°)'];
         document.getElementById('modal-transit').textContent = obj['Transit Time'];
-        document.getElementById('modal-dur').textContent = Math.round((parseFloat(obj['Observable Duration (min)'])||0)/60*10)/10 + " hrs";
-        document.getElementById('modal-const').textContent = obj.Constellation || "N/A";
+        document.getElementById('modal-dur').textContent = Math.round((parseFloat(obj['Observable Duration (min)'])||1)/60*10)/10 + " " + inspirationI18n.hrs;
+        document.getElementById('modal-const').textContent = obj.Constellation || inspirationI18n.na;
         document.getElementById('modal-text').textContent = summary;
 
         // 4. Handle Attribution
         const attrib = document.getElementById('modal-attribution');
         if (source === "Wiki") {
-            attrib.innerHTML = `Source: <a href="${wikiUrl}" target="_blank">Wikipedia</a>`;
+            attrib.innerHTML = inspirationI18n.source + ' <a href="${wikiUrl}" target="_blank">' + inspirationI18n.sourceWikipedia + '</a>';
         } else if (source === "NASA") {
-            attrib.innerHTML = `Source: <a href="${wikiUrl}" target="_blank">NASA</a>`;
+            attrib.innerHTML = inspirationI18n.source + ' <a href="${wikiUrl}" target="_blank">' + inspirationI18n.sourceNasa + '</a>';
         } else if (source === "DSS2") {
-            attrib.innerHTML = `Source: Aladin Sky Atlas / DSS2`;
+            attrib.innerHTML = inspirationI18n.source + ' ' + inspirationI18n.sourceDss2;
         } else {
             if (wikiUrl) {
-                attrib.innerHTML = `Source: <a href="${wikiUrl}" target="_blank">${source}</a>`;
+                attrib.innerHTML = inspirationI18n.source + ' <a href="${wikiUrl}" target="_blank">${source}</a>';
             } else {
-                attrib.innerHTML = `Source: ${source}`;
+                attrib.innerHTML = inspirationI18n.source + ' ' + source;
             }
         }
 

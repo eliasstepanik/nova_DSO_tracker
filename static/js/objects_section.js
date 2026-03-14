@@ -97,6 +97,81 @@
         return nameStr.replace(/\s+/g, ' ');
     }
 
+    /**
+     * Parse a range filter expression.
+     * Supports: "15" (exact), "<15" (less than), ">5" (greater than), ">5 <30" (range)
+     * Returns: { min: null|number, max: null|number } or null if empty/invalid
+     */
+    function parseRangeFilter(str) {
+        if (!str || str.trim() === '') return null;
+
+        str = str.trim();
+        const result = { min: null, max: null };
+
+        // Match all <value and >value patterns
+        const lessThanMatches = str.match(/<\s*([\d.]+)/g);
+        const greaterThanMatches = str.match(/>\s*([\d.]+)/g);
+
+        if (lessThanMatches) {
+            lessThanMatches.forEach(match => {
+                const val = parseFloat(match.replace(/<\s*/, ''));
+                if (!isNaN(val)) {
+                    result.max = val;
+                }
+            });
+        }
+
+        if (greaterThanMatches) {
+            greaterThanMatches.forEach(match => {
+                const val = parseFloat(match.replace(/>\s*/, ''));
+                if (!isNaN(val)) {
+                    result.min = val;
+                }
+            });
+        }
+
+        // If no operators found, treat as plain number (exact match or default behavior)
+        if (!lessThanMatches && !greaterThanMatches) {
+            const plainNum = parseFloat(str);
+            if (!isNaN(plainNum)) {
+                // For plain numbers without operators, we'll use equality-ish behavior
+                // But historically Mag was "<" and Size was ">", so we keep that convention
+                // Actually, let's just treat plain numbers as "equals approximately"
+                // For better UX, let's not set any filter for plain numbers
+                // User should use explicit operators
+                // Or we can infer from context - but let's just return null for plain numbers
+                // to indicate "no filter" unless they use operators
+                // Actually, let's support plain numbers as "exact" for simplicity
+                result.exact = plainNum;
+            }
+        }
+
+        // Return null if no valid constraints were parsed
+        if (result.min === null && result.max === null && !result.exact) {
+            return null;
+        }
+
+        return result;
+    }
+
+    /**
+     * Check if a numeric value passes a range filter.
+     */
+    function matchesRangeFilter(value, filter) {
+        if (!filter) return true;
+
+        // Handle exact match (for plain numbers without operators)
+        if (filter.exact !== undefined) {
+            return Math.abs(value - filter.exact) < 0.01;
+        }
+
+        // Handle range constraints
+        if (filter.min !== null && value <= filter.min) return false;
+        if (filter.max !== null && value >= filter.max) return false;
+
+        return true;
+    }
+
     // --- Sub-tab management ---
     function showObjectSubTab(tabName) {
         // Hide all content
@@ -137,11 +212,16 @@
         // --- NEW: Get Notes Filter ---
         const filterNotes = document.getElementById('object-filter-notes').value.toLowerCase();
 
-        // Numerical Filters
-        const filterMagStr = document.getElementById('object-filter-mag').value;
-        const filterSizeStr = document.getElementById('object-filter-size').value;
-        const filterMag = filterMagStr ? parseFloat(filterMagStr) : null;
-        const filterSize = filterSizeStr ? parseFloat(filterSizeStr) : null;
+        // Numerical Filters - parse range expressions like <15, >5, >5 <30
+        const filterMagStr = document.getElementById('object-filter-mag').value.trim();
+        const filterSizeStr = document.getElementById('object-filter-size').value.trim();
+        const filterMag = parseRangeFilter(filterMagStr);
+        const filterSize = parseRangeFilter(filterSizeStr);
+
+        // Debug logging
+        if (filterMagStr || filterSizeStr) {
+            console.log('Range filters:', { filterMagStr, filterMag, filterSizeStr, filterSize });
+        }
 
         // 2. Get all object blocks
         const objectBlocks = document.querySelectorAll('.objects-list .object-grid-container');
@@ -229,8 +309,9 @@
                     if (!source.includes(filterSource)) show = false;
                 }
             }
-            if (show && filterMag !== null && magVal > filterMag) show = false;
-            if (show && filterSize !== null && sizeVal < filterSize) show = false;
+            // Apply range filters using the new range filter logic
+            if (show && filterMag !== null && !matchesRangeFilter(magVal, filterMag)) show = false;
+            if (show && filterSize !== null && !matchesRangeFilter(sizeVal, filterSize)) show = false;
 
             // 5. Show or hide
             block.style.display = show ? '' : 'none';
@@ -242,9 +323,9 @@
         const countDisplay = document.getElementById('object-count-display');
         if (countDisplay) {
             if (visibleCount === totalCount) {
-                countDisplay.textContent = `Showing ${totalCount} objects`;
+                countDisplay.textContent = window.t('showing_objects', { count: totalCount });
             } else {
-                countDisplay.textContent = `Showing ${visibleCount} of ${totalCount} objects`;
+                countDisplay.textContent = window.t('showing_objects_of', { shown: visibleCount, total: totalCount });
             }
         }
     }
@@ -278,7 +359,7 @@
 
     function updateSelectionCount() {
         const count = document.querySelectorAll('.bulk-select-checkbox:checked').length;
-        document.getElementById('selection-count').textContent = `${count} Selected`;
+        document.getElementById('selection-count').textContent = `${count} ${window.t('selected')}`;
     }
 
     // Attach listener to checkbox changes dynamically
@@ -419,11 +500,11 @@
         const objectIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.objectId);
 
         if (objectIds.length === 0) {
-            alert("No objects selected.");
+            alert(window.t('no_objects_selected'));
             return;
         }
 
-        if (!confirm(`Are you sure you want to ${action.toUpperCase()} ${objectIds.length} objects?`)) {
+        if (!confirm(window.t('confirm_bulk_action', { action: action.toUpperCase(), count: objectIds.length }))) {
             return;
         }
 
@@ -443,7 +524,7 @@
         })
         .catch(err => {
             console.error('Bulk action failed:', err);
-            alert('Bulk action failed. See console.');
+            alert(window.t('bulk_action_failed'));
         });
     }
 
@@ -452,7 +533,7 @@
         const objectIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.objectId);
 
         if (objectIds.length === 0) {
-            alert("No objects selected.");
+            alert(window.t('no_objects_selected'));
             return;
         }
 
@@ -464,7 +545,7 @@
         const countDisplay = document.getElementById('object-count-display');
         const originalText = countDisplay ? countDisplay.textContent : '';
         if (countDisplay) {
-            countDisplay.textContent = `Fetching details for ${objectIds.length} objects...`;
+            countDisplay.textContent = window.t('fetching_details_for', { count: objectIds.length });
             countDisplay.style.color = 'var(--accent-color)';
         }
 
@@ -492,7 +573,7 @@
                 countDisplay.textContent = originalText;
                 countDisplay.style.color = '';
             }
-            alert('Bulk fetch details failed. See console.');
+            alert(window.t('bulk_fetch_details_failed'));
         });
     }
 
@@ -510,7 +591,7 @@
             const list = document.getElementById('duplicates-list');
 
             if (data.duplicates.length === 0) {
-                list.innerHTML = '<p style="text-align: center; padding: 20px;">No potential duplicates found based on coordinates.</p>';
+                list.innerHTML = '<p style="text-align: center; padding: 20px;">' + window.t('no_potential_duplicates') + '</p>';
                 return;
             }
 
@@ -536,8 +617,8 @@
                         <small class="muted-text">Src: ${pair.object_b.catalog_sources || 'Manual'}</small>
                     </td>
                     <td style="vertical-align: middle; text-align: center;">
-                        <button class="action-button" style="font-size: 11px; margin-bottom: 5px;" data-action="merge-objects" data-keep-id="${nameA}" data-merge-id="${nameB}" data-row-id="${rowId}">Keep A, Merge B</button><br>
-                        <button class="action-button" style="font-size: 11px;" data-action="merge-objects" data-keep-id="${nameB}" data-merge-id="${nameA}" data-row-id="${rowId}">Keep B, Merge A</button>
+                        <button class="action-button" style="font-size: 11px; margin-bottom: 5px;" data-action="merge-objects" data-keep-id="${nameA}" data-merge-id="${nameB}" data-row-id="${rowId}">${window.t('keep_a_merge_b')}</button><br>
+                        <button class="action-button" style="font-size: 11px;" data-action="merge-objects" data-keep-id="${nameB}" data-merge-id="${nameA}" data-row-id="${rowId}">${window.t('keep_b_merge_a')}</button>
                     </td>
                 </tr>`;
             });
@@ -548,12 +629,12 @@
         .catch(err => {
             console.error(err);
             document.getElementById('duplicates-loading').style.display = 'none';
-            document.getElementById('duplicates-list').innerHTML = '<p style="color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + '; text-align: center;">Error scanning for duplicates.</p>';
+            document.getElementById('duplicates-list').innerHTML = '<p style="color: ' + ((window.stylingUtils && window.stylingUtils.getDangerColor) ? window.stylingUtils.getDangerColor() : 'red') + '; text-align: center;">' + window.t('error_scanning_duplicates') + '</p>';
         });
     }
 
     function mergeObjects(keepId, mergeId, rowId) {
-        if (!confirm(`Merge '${mergeId}' INTO '${keepId}'?\n\nThis will:\n1. Re-link journals/projects from ${mergeId} to ${keepId}\n2. Copy notes from ${mergeId}\n3. DELETE ${mergeId} permanently`)) {
+        if (!confirm(window.t('merge_confirm', { merge: mergeId, keep: keepId }))) {
             return;
         }
 
@@ -568,7 +649,7 @@
                 const row = document.getElementById(rowId);
                 if (row) row.remove();
                 if (document.querySelectorAll('#duplicates-list tr').length <= 1) {
-                    document.getElementById('duplicates-list').innerHTML = '<p style="text-align: center; padding: 20px;">All duplicates resolved!</p>';
+                    document.getElementById('duplicates-list').innerHTML = '<p style="text-align: center; padding: 20px;">' + window.t('all_duplicates_resolved') + '</p>';
                 }
             } else {
                 alert('Error: ' + data.message);
