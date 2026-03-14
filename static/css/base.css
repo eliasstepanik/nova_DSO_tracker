@@ -1342,6 +1342,15 @@
     background-color: var(--bg-light);
 }
 
+.user-dropdown-item.active {
+    background-color: var(--bg-light);
+    color: var(--primary-color);
+}
+
+.user-dropdown-item.active svg {
+    color: var(--primary-color);
+}
+
 .user-dropdown-item svg {
     flex-shrink: 0;
     color: var(--text-secondary);
