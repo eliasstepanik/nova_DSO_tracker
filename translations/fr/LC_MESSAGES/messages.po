@@ -5567,3 +5567,71 @@ msgstr "Mode simulation actif — affichage des prévisions actuelles (les API m
 msgid "Overall Conditions"
 msgstr "Conditions générales"
 
+#: templates/config_form.html
+msgid "Account"
+msgstr "Compte"
+
+#: templates/config_form.html
+msgid "Account Settings"
+msgstr "Paramètres du compte"
+
+#: templates/config_form.html
+msgid "Manage your account credentials."
+msgstr "Gérez vos identifiants de compte."
+
+#: templates/config_form.html
+msgid "Change Username"
+msgstr "Changer le nom d'utilisateur"
+
+#: templates/config_form.html
+msgid "Current Username"
+msgstr "Nom d'utilisateur actuel"
+
+#: templates/config_form.html
+msgid "New Username"
+msgstr "Nouveau nom d'utilisateur"
+
+#: templates/config_form.html
+msgid "Enter new username"
+msgstr "Entrez le nouveau nom d'utilisateur"
+
+#: templates/config_form.html
+msgid "3-80 characters, letters, numbers, underscores, and hyphens only."
+msgstr "3-80 caractères, lettres, chiffres, tirets bas et tirets uniquement."
+
+#: templates/config_form.html
+msgid "Current Password"
+msgstr "Mot de passe actuel"
+
+#: templates/config_form.html
+msgid "Confirm with your password"
+msgstr "Confirmez avec votre mot de passe"
+
+#: templates/config_form.html
+msgid "Change Password"
+msgstr "Changer le mot de passe"
+
+#: templates/config_form.html
+msgid "Enter current password"
+msgstr "Entrez le mot de passe actuel"
+
+#: templates/config_form.html
+msgid "New Password"
+msgstr "Nouveau mot de passe"
+
+#: templates/config_form.html
+msgid "Enter new password"
+msgstr "Entrez le nouveau mot de passe"
+
+#: templates/config_form.html
+msgid "Minimum 8 characters."
+msgstr "8 caractères minimum."
+
+#: templates/config_form.html
+msgid "Confirm New Password"
+msgstr "Confirmer le nouveau mot de passe"
+
+#: templates/config_form.html
+msgid "Confirm new password"
+msgstr "Confirmez le nouveau mot de passe"
+

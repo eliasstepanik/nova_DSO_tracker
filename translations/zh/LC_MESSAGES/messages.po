@@ -5400,3 +5400,71 @@ msgstr "模拟模式已激活 — 显示当前预报（天气API不支持历史/
 msgid "Overall Conditions"
 msgstr "总体条件"
 
+#: templates/config_form.html
+msgid "Account"
+msgstr "账户"
+
+#: templates/config_form.html
+msgid "Account Settings"
+msgstr "账户设置"
+
+#: templates/config_form.html
+msgid "Manage your account credentials."
+msgstr "管理您的账户凭据。"
+
+#: templates/config_form.html
+msgid "Change Username"
+msgstr "更改用户名"
+
+#: templates/config_form.html
+msgid "Current Username"
+msgstr "当前用户名"
+
+#: templates/config_form.html
+msgid "New Username"
+msgstr "新用户名"
+
+#: templates/config_form.html
+msgid "Enter new username"
+msgstr "输入新用户名"
+
+#: templates/config_form.html
+msgid "3-80 characters, letters, numbers, underscores, and hyphens only."
+msgstr "3-80个字符，仅限字母、数字、下划线和连字符。"
+
+#: templates/config_form.html
+msgid "Current Password"
+msgstr "当前密码"
+
+#: templates/config_form.html
+msgid "Confirm with your password"
+msgstr "使用密码确认"
+
+#: templates/config_form.html
+msgid "Change Password"
+msgstr "更改密码"
+
+#: templates/config_form.html
+msgid "Enter current password"
+msgstr "输入当前密码"
+
+#: templates/config_form.html
+msgid "New Password"
+msgstr "新密码"
+
+#: templates/config_form.html
+msgid "Enter new password"
+msgstr "输入新密码"
+
+#: templates/config_form.html
+msgid "Minimum 8 characters."
+msgstr "最少8个字符。"
+
+#: templates/config_form.html
+msgid "Confirm New Password"
+msgstr "确认新密码"
+
+#: templates/config_form.html
+msgid "Confirm new password"
+msgstr "确认新密码"
+

@@ -5435,3 +5435,71 @@ msgstr "Simulation mode active — showing current forecast (weather APIs do not
 msgid "Overall Conditions"
 msgstr "Overall Conditions"
 
+#: templates/config_form.html
+msgid "Account"
+msgstr "Account"
+
+#: templates/config_form.html
+msgid "Account Settings"
+msgstr "Account Settings"
+
+#: templates/config_form.html
+msgid "Manage your account credentials."
+msgstr "Manage your account credentials."
+
+#: templates/config_form.html
+msgid "Change Username"
+msgstr "Change Username"
+
+#: templates/config_form.html
+msgid "Current Username"
+msgstr "Current Username"
+
+#: templates/config_form.html
+msgid "New Username"
+msgstr "New Username"
+
+#: templates/config_form.html
+msgid "Enter new username"
+msgstr "Enter new username"
+
+#: templates/config_form.html
+msgid "3-80 characters, letters, numbers, underscores, and hyphens only."
+msgstr "3-80 characters, letters, numbers, underscores, and hyphens only."
+
+#: templates/config_form.html
+msgid "Current Password"
+msgstr "Current Password"
+
+#: templates/config_form.html
+msgid "Confirm with your password"
+msgstr "Confirm with your password"
+
+#: templates/config_form.html
+msgid "Change Password"
+msgstr "Change Password"
+
+#: templates/config_form.html
+msgid "Enter current password"
+msgstr "Enter current password"
+
+#: templates/config_form.html
+msgid "New Password"
+msgstr "New Password"
+
+#: templates/config_form.html
+msgid "Enter new password"
+msgstr "Enter new password"
+
+#: templates/config_form.html
+msgid "Minimum 8 characters."
+msgstr "Minimum 8 characters."
+
+#: templates/config_form.html
+msgid "Confirm New Password"
+msgstr "Confirm New Password"
+
+#: templates/config_form.html
+msgid "Confirm new password"
+msgstr "Confirm new password"
+

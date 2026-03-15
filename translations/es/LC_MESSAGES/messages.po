@@ -5542,3 +5542,71 @@ msgstr "Modo de simulación activo — mostrando pronóstico actual (las APIs me
 msgid "Overall Conditions"
 msgstr "Condiciones generales"
 
+#: templates/config_form.html
+msgid "Account"
+msgstr "Cuenta"
+
+#: templates/config_form.html
+msgid "Account Settings"
+msgstr "Configuración de cuenta"
+
+#: templates/config_form.html
+msgid "Manage your account credentials."
+msgstr "Administre sus credenciales de cuenta."
+
+#: templates/config_form.html
+msgid "Change Username"
+msgstr "Cambiar nombre de usuario"
+
+#: templates/config_form.html
+msgid "Current Username"
+msgstr "Nombre de usuario actual"
+
+#: templates/config_form.html
+msgid "New Username"
+msgstr "Nuevo nombre de usuario"
+
+#: templates/config_form.html
+msgid "Enter new username"
+msgstr "Ingrese nuevo nombre de usuario"
+
+#: templates/config_form.html
+msgid "3-80 characters, letters, numbers, underscores, and hyphens only."
+msgstr "3-80 caracteres, solo letras, números, guiones bajos y guiones."
+
+#: templates/config_form.html
+msgid "Current Password"
+msgstr "Contraseña actual"
+
+#: templates/config_form.html
+msgid "Confirm with your password"
+msgstr "Confirmar con su contraseña"
+
+#: templates/config_form.html
+msgid "Change Password"
+msgstr "Cambiar contraseña"
+
+#: templates/config_form.html
+msgid "Enter current password"
+msgstr "Ingrese la contraseña actual"
+
+#: templates/config_form.html
+msgid "New Password"
+msgstr "Nueva contraseña"
+
+#: templates/config_form.html
+msgid "Enter new password"
+msgstr "Ingrese la nueva contraseña"
+
+#: templates/config_form.html
+msgid "Minimum 8 characters."
+msgstr "Mínimo 8 caracteres."
+
+#: templates/config_form.html
+msgid "Confirm New Password"
+msgstr "Confirmar nueva contraseña"
+
+#: templates/config_form.html
+msgid "Confirm new password"
+msgstr "Confirme la nueva contraseña"
+
