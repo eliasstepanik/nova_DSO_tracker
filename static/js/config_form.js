@@ -892,7 +892,8 @@
             objects: document.getElementById('objects-tab-content'),
             rigs: document.getElementById('rigs-tab-content'),
             shared: document.getElementById('shared-tab-content'),
-            stellarium: document.getElementById('stellarium-tab-content')
+            stellarium: document.getElementById('stellarium-tab-content'),
+            account: document.getElementById('account-tab-content')
         };
         let activeTab = localStorage.getItem('activeConfigTab') || 'general';
 
