@@ -5663,6 +5663,50 @@ def migrate_journal_data():
     print("[MIGRATION] Check complete.")
 
 
+def _estimate_transparency(visibility_m, rh):
+    if visibility_m is None:
+        return None
+    if visibility_m >= 50000:
+        return 1
+    elif visibility_m >= 30000:
+        return 2
+    elif visibility_m >= 20000:
+        return 3
+    elif visibility_m >= 15000:
+        return 4
+    elif visibility_m >= 10000:
+        return 5
+    elif visibility_m >= 5000:
+        return 6
+    elif visibility_m >= 2000:
+        return 7
+    else:
+        return 8
+
+
+def _estimate_seeing(temp, dew_point, wind_speed):
+    if temp is None or dew_point is None:
+        return None
+    spread = abs(temp - dew_point)
+    wind = wind_speed if wind_speed else 0
+    if spread >= 15 and wind < 10:
+        return 1
+    elif spread >= 12 and wind < 15:
+        return 2
+    elif spread >= 10 and wind < 20:
+        return 3
+    elif spread >= 8 and wind < 25:
+        return 4
+    elif spread >= 6:
+        return 5
+    elif spread >= 4:
+        return 6
+    elif spread >= 2:
+        return 7
+    else:
+        return 8
+
+
 def get_open_meteo_data(lat: float, lon: float) -> dict | None:
     """
     Fetches weather data from Open-Meteo with basic error handling.
@@ -5676,7 +5720,7 @@ def get_open_meteo_data(lat: float, lon: float) -> dict | None:
         params = {
             "latitude": lat,
             "longitude": lon,
-            "hourly": "temperature_2m,relative_humidity_2m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,wind_speed_10m",
+            "hourly": "temperature_2m,relative_humidity_2m,cloud_cover_low,cloud_cover_mid,cloud_cover_high,wind_speed_10m,visibility,dew_point_2m",
             "forecast_days": 7,
             "timezone": "UTC",  # Request data in UTC for easier processing
         }
@@ -5846,6 +5890,11 @@ def get_hybrid_weather_forecast(lat, lon):
                 temp = om_hourly.get("temperature_2m", [None] * len(times))[i]
                 rh = om_hourly.get("relative_humidity_2m", [None] * len(times))[i]
                 wind = om_hourly.get("wind_speed_10m", [None] * len(times))[i]
+                visibility = om_hourly.get("visibility", [None] * len(times))[i]
+                dew_point = om_hourly.get("dew_point_2m", [None] * len(times))[i]
+
+                est_trans = _estimate_transparency(visibility, rh)
+                est_seeing = _estimate_seeing(temp, dew_point, wind)
 
                 block = {
                     "timepoint": timepoint,
@@ -5853,8 +5902,8 @@ def get_hybrid_weather_forecast(lat, lon):
                     "temp2m": temp,
                     "rh2m": rh,
                     "wind_speed": wind,
-                    "seeing": -9999,
-                    "transparency": -9999,
+                    "seeing": -est_seeing if est_seeing else -9999,
+                    "transparency": -est_trans if est_trans else -9999,
                 }
                 translated_dataseries[timepoint] = block  # Store by timepoint
 
@@ -9334,7 +9383,10 @@ def inject_user_mode():
         "ja": "auto",
         "zh": "auto",
     }
-    current_language = session.get("language", "en")
+    # Read from user_config first (authenticated users), then session (guests)
+    current_language = (
+        user_config.get("language") if user_config else None
+    ) or session.get("language", "en")
     return {
         "SINGLE_USER_MODE": SINGLE_USER_MODE,
         "current_user": current_user,
@@ -9389,6 +9441,9 @@ def set_language(lang):
         # Update g.user_config for current request
         if hasattr(g, "user_config"):
             g.user_config["language"] = lang
+
+        # Also set session for consistency with context processor
+        session["language"] = lang
 
     except Exception as e:
         db.rollback()
