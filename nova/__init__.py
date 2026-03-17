@@ -171,6 +171,9 @@ from nova.models import (
     Permission,
     roles_users,
     roles_permissions,
+    BlogPost,
+    BlogImage,
+    BlogComment,
 )
 from nova.permissions import admin_required, permission_required, PERMISSION_CATEGORIES
 from nova.config import (
@@ -180,6 +183,7 @@ from nova.config import (
     CONFIG_DIR,
     BACKUP_DIR,
     UPLOAD_FOLDER,
+    BLOG_UPLOAD_FOLDER,
     ENV_FILE,
     FIRST_RUN_ENV_CREATED,
     SINGLE_USER_MODE,
@@ -242,6 +246,7 @@ from nova.blueprints.projects import projects_bp
 from nova.blueprints.tools import tools_bp
 from nova.blueprints.rest_api import rest_api_bp
 from nova.blueprints.weather import weather_bp
+from nova.blueprints.blog import blog_bp
 from nova.api_auth import ensure_single_user_api_key, api_key_or_login_required
 
 
@@ -1357,6 +1362,27 @@ def ensure_db_initialized_unified():
                 print(
                     "[DB PATCH] Added missing column journal_sessions.custom_filter_data"
                 )
+
+            # --- Blog Tables (community astrophotography sharing) ---
+            # Ensure blog_posts, blog_images, blog_comments tables exist
+            # (normally created by Base.metadata.create_all, but check for safety)
+            for blog_table in ("blog_posts", "blog_images", "blog_comments"):
+                blog_table_exists = conn.exec_driver_sql(
+                    f"SELECT name FROM sqlite_master WHERE type='table' AND name='{blog_table}';"
+                ).fetchone()
+                if not blog_table_exists:
+                    # Tables should have been created by Base.metadata.create_all
+                    # If not, the model wasn't imported yet - re-run create_all
+                    Base.metadata.create_all(
+                        bind=engine,
+                        tables=[
+                            t
+                            for t in Base.metadata.tables.values()
+                            if t.name == blog_table
+                        ],
+                        checkfirst=True,
+                    )
+                    print(f"[DB PATCH] Created {blog_table} table")
 
             # --- Analytics Tables (GDPR-compliant, no PII) ---
             # Create analytics_event table if it doesn't exist
@@ -3909,6 +3935,73 @@ def load_user(user_id):
 
 
 app.jinja_env.filters["toyaml"] = to_yaml_filter
+
+
+# --- Blog Markdown rendering filter ---
+import markdown as md_lib
+from markupsafe import Markup
+
+_BLOG_MD_EXTENSIONS = [
+    "fenced_code",
+    "tables",
+    "nl2br",
+    "attr_list",
+    "footnotes",
+]
+_BLOG_ALLOWED_TAGS = [
+    "p",
+    "br",
+    "strong",
+    "em",
+    "del",
+    "code",
+    "pre",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "hr",
+    "a",
+    "img",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "sup",
+    "div",
+    "span",
+]
+_BLOG_ALLOWED_ATTRS = {
+    "a": ["href", "title", "rel"],
+    "img": ["src", "alt", "title"],
+    "*": ["class", "id"],
+}
+
+
+def render_markdown_filter(text: str) -> Markup:
+    """Convert markdown text to safe HTML for blog posts and comments."""
+    if not text:
+        return Markup("")
+    html = md_lib.markdown(text, extensions=_BLOG_MD_EXTENSIONS)
+    clean = bleach.clean(
+        html,
+        tags=_BLOG_ALLOWED_TAGS,
+        attributes=_BLOG_ALLOWED_ATTRS,
+        strip=True,
+    )
+    return Markup(clean)
+
+
+app.jinja_env.filters["render_markdown"] = render_markdown_filter
+
 app.secret_key = SECRET_KEY
 csrf = CSRFProtect()
 csrf.init_app(app)
@@ -17964,6 +18057,379 @@ def download_csv(item_type, item_id):
 
 
 # =============================================================================
+# Blog Image Helpers
+# =============================================================================
+from PIL import Image as _PILImage
+
+try:
+    _BLOG_LANCZOS = _PILImage.Resampling.LANCZOS
+except AttributeError:
+    _BLOG_LANCZOS = _PILImage.LANCZOS
+
+BLOG_THUMB_MAX = (400, 400)
+BLOG_THUMB_QUAL = 85
+BLOG_PER_PAGE = 10
+BLOG_COMMENT_MAX_LEN = 2000
+
+
+def _save_blog_image(
+    file, user_id: int, post_id: int, order: int, caption: str
+) -> "BlogImage | None":
+    """
+    Validate, save, and thumbnail a blog image upload.
+
+    Storage layout:
+        instance/uploads/blog/<user_id>/blog_<uuid>.ext     (original)
+        instance/uploads/blog/<user_id>/blog_thumb_<uuid>.jpg (≤400×400)
+
+    Returns a BlogImage ORM object (not yet added to session) or None on failure.
+    """
+    if not file or file.filename == "":
+        return None
+    if not allowed_file(file.filename):
+        return None
+
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    uid = uuid.uuid4().hex
+    orig_name = f"blog_{uid}.{ext}"
+    thumb_name = f"blog_thumb_{uid}.jpg"
+
+    user_blog_dir = os.path.join(BLOG_UPLOAD_FOLDER, str(user_id))
+    os.makedirs(user_blog_dir, exist_ok=True)
+
+    orig_path = os.path.join(user_blog_dir, orig_name)
+    thumb_path = os.path.join(user_blog_dir, thumb_name)
+
+    try:
+        file.save(orig_path)
+
+        with _PILImage.open(orig_path) as img:
+            # Normalise colour mode for JPEG output
+            if img.mode in ("RGBA", "P", "LA"):
+                background = _PILImage.new("RGB", img.size, (0, 0, 0))
+                alpha = img.convert("RGBA").split()[-1]
+                background.paste(img.convert("RGBA"), mask=alpha)
+                img = background
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+
+            img.thumbnail(BLOG_THUMB_MAX, resample=_BLOG_LANCZOS)
+            img.save(
+                thumb_path,
+                format="JPEG",
+                quality=BLOG_THUMB_QUAL,
+                optimize=True,
+                progressive=True,
+            )
+
+        return BlogImage(
+            post_id=post_id,
+            filename=orig_name,
+            thumb_filename=thumb_name,
+            caption=caption or "",
+            display_order=order,
+        )
+
+    except Exception as e:
+        print(f"[BLOG] Error saving blog image: {e}")
+        # Clean up partial files
+        for p in (orig_path, thumb_path):
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+        return None
+
+
+def _delete_blog_image_files(image: "BlogImage", user_id: int) -> None:
+    """
+    Delete the original and thumbnail files for a BlogImage from disk.
+    Silently ignores missing files.
+    """
+    user_blog_dir = os.path.join(BLOG_UPLOAD_FOLDER, str(user_id))
+    for filename in (image.filename, image.thumb_filename):
+        if not filename:
+            continue
+        path = os.path.join(user_blog_dir, filename)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError as e:
+                print(f"[BLOG] Could not delete image file {path}: {e}")
+
+
+# =============================================================================
+# Blog Routes
+# =============================================================================
+from sqlalchemy.orm import joinedload, selectinload
+
+
+@blog_bp.route("/")
+def blog_list():
+    """Public list of all blog posts, paginated."""
+    db = get_db()
+    page = request.args.get("page", 1, type=int)
+    if page < 1:
+        page = 1
+
+    total = db.query(BlogPost).count()
+    posts = (
+        db.query(BlogPost)
+        .options(joinedload(BlogPost.user), selectinload(BlogPost.images))
+        .order_by(BlogPost.created_at.desc())
+        .offset((page - 1) * BLOG_PER_PAGE)
+        .limit(BLOG_PER_PAGE)
+        .all()
+    )
+    total_pages = (total + BLOG_PER_PAGE - 1) // BLOG_PER_PAGE if total > 0 else 1
+
+    return render_template(
+        "blog_list.html",
+        posts=posts,
+        page=page,
+        total_pages=total_pages,
+        total=total,
+    )
+
+
+@blog_bp.route("/<int:post_id>")
+def blog_detail(post_id):
+    """Public view of a single blog post with comments."""
+    db = get_db()
+    post = (
+        db.query(BlogPost)
+        .options(
+            joinedload(BlogPost.user),
+            selectinload(BlogPost.images),
+            selectinload(BlogPost.comments).joinedload(BlogComment.user),
+        )
+        .filter(BlogPost.id == post_id)
+        .first()
+    )
+    if not post:
+        abort(404)
+    return render_template("blog_detail.html", post=post)
+
+
+@blog_bp.route("/create", methods=["GET", "POST"])
+@login_required
+@permission_required("blog.create")
+def blog_create():
+    """Create a new blog post."""
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        content = request.form.get("content", "").strip()
+
+        if not title:
+            flash("Title is required.", "error")
+            return redirect(request.url)
+        if not content:
+            flash("Content is required.", "error")
+            return redirect(request.url)
+
+        user_id = 1 if SINGLE_USER_MODE else current_user.id
+
+        db = get_db()
+        post = BlogPost(title=title, content=content, user_id=user_id)
+        db.add(post)
+        db.flush()  # get post.id
+
+        files = request.files.getlist("images")
+        captions = request.form.getlist("captions")
+        for order, file in enumerate(files):
+            img = _save_blog_image(
+                file,
+                user_id,
+                post.id,
+                order,
+                captions[order] if order < len(captions) else "",
+            )
+            if img:
+                db.add(img)
+
+        db.commit()
+        flash("Post published!", "success")
+        return redirect(url_for("blog.blog_detail", post_id=post.id))
+
+    return render_template("blog_form.html", post=None, is_edit=False)
+
+
+@blog_bp.route("/<int:post_id>/edit", methods=["GET", "POST"])
+@login_required
+@permission_required("blog.edit")
+def blog_edit(post_id):
+    """Edit an existing blog post (owner or admin only)."""
+    db = get_db()
+    post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
+    if not post:
+        abort(404)
+
+    user_id = 1 if SINGLE_USER_MODE else current_user.id
+    if not SINGLE_USER_MODE and post.user_id != user_id and not current_user.is_admin:
+        abort(403)
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        content = request.form.get("content", "").strip()
+
+        if not title or not content:
+            flash("Title and content are required.", "error")
+            return redirect(request.url)
+
+        post.title = title
+        post.content = content
+        post.updated_at = datetime.utcnow()
+
+        files = request.files.getlist("images")
+        captions = request.form.getlist("new_captions")
+        # Determine next display_order
+        existing_max = max((img.display_order for img in post.images), default=-1)
+        for i, file in enumerate(files):
+            img = _save_blog_image(
+                file,
+                post.user_id,
+                post.id,
+                existing_max + 1 + i,
+                captions[i] if i < len(captions) else "",
+            )
+            if img:
+                db.add(img)
+
+        db.commit()
+        flash("Post updated!", "success")
+        return redirect(url_for("blog.blog_detail", post_id=post.id))
+
+    return render_template("blog_form.html", post=post, is_edit=True)
+
+
+@blog_bp.route("/<int:post_id>/delete", methods=["POST"])
+@login_required
+@permission_required("blog.delete")
+def blog_delete(post_id):
+    """Delete a blog post (owner or admin only)."""
+    db = get_db()
+    post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
+    if not post:
+        abort(404)
+
+    user_id = 1 if SINGLE_USER_MODE else current_user.id
+    if not SINGLE_USER_MODE and post.user_id != user_id and not current_user.is_admin:
+        abort(403)
+
+    # Delete image files from disk before deleting DB rows
+    for img in post.images:
+        _delete_blog_image_files(img, post.user_id)
+
+    db.delete(post)  # cascade deletes BlogImage and BlogComment rows
+    db.commit()
+    flash("Post deleted.", "success")
+    return redirect(url_for("blog.blog_list"))
+
+
+@blog_bp.route("/<int:post_id>/delete-image/<int:image_id>", methods=["POST"])
+@login_required
+def blog_delete_image(post_id, image_id):
+    """AJAX endpoint to delete a single image from a post."""
+    db = get_db()
+    image = (
+        db.query(BlogImage)
+        .filter(BlogImage.id == image_id, BlogImage.post_id == post_id)
+        .first()
+    )
+    if not image:
+        return jsonify({"error": "Image not found"}), 404
+
+    post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
+    user_id = 1 if SINGLE_USER_MODE else current_user.id
+    if not SINGLE_USER_MODE and post.user_id != user_id and not current_user.is_admin:
+        return jsonify({"error": "Forbidden"}), 403
+
+    _delete_blog_image_files(image, post.user_id)
+    db.delete(image)
+    db.commit()
+    return jsonify({"success": True})
+
+
+@blog_bp.route("/<int:post_id>/comment", methods=["POST"])
+@login_required
+@permission_required("blog.comment")
+def blog_add_comment(post_id):
+    """Add a comment to a blog post."""
+    db = get_db()
+    post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
+    if not post:
+        abort(404)
+
+    content = request.form.get("comment_content", "").strip()
+    if not content:
+        flash("Comment cannot be empty.", "error")
+        return redirect(url_for("blog.blog_detail", post_id=post_id))
+    if len(content) > BLOG_COMMENT_MAX_LEN:
+        flash(f"Comment exceeds {BLOG_COMMENT_MAX_LEN} characters.", "error")
+        return redirect(url_for("blog.blog_detail", post_id=post_id))
+
+    user_id = 1 if SINGLE_USER_MODE else current_user.id
+    comment = BlogComment(post_id=post_id, user_id=user_id, content=content)
+    db.add(comment)
+    db.commit()
+    return redirect(url_for("blog.blog_detail", post_id=post_id) + "#comments")
+
+
+@blog_bp.route("/<int:post_id>/comment/<int:comment_id>/delete", methods=["POST"])
+@login_required
+def blog_delete_comment(post_id, comment_id):
+    """Delete a comment (comment author, post author, or admin)."""
+    db = get_db()
+    comment = (
+        db.query(BlogComment)
+        .filter(BlogComment.id == comment_id, BlogComment.post_id == post_id)
+        .first()
+    )
+    if not comment:
+        abort(404)
+
+    user_id = 1 if SINGLE_USER_MODE else current_user.id
+    post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
+
+    # Allow: comment author, post author, admin
+    is_comment_owner = comment.user_id == user_id
+    is_post_owner = post and post.user_id == user_id
+    is_admin = not SINGLE_USER_MODE and current_user.is_admin
+
+    if not SINGLE_USER_MODE and not (is_comment_owner or is_post_owner or is_admin):
+        abort(403)
+
+    db.delete(comment)
+    db.commit()
+    flash("Comment deleted.", "success")
+    return redirect(url_for("blog.blog_detail", post_id=post_id) + "#comments")
+
+
+@blog_bp.route("/uploads/<int:user_id>/<path:filename>")
+def blog_serve_image(user_id, filename):
+    """
+    Serve blog images from instance/uploads/blog/<user_id>/<filename>.
+    Public access: blog detail pages are public, images must be too.
+    Path traversal protection via abspath check.
+    """
+    from flask import send_from_directory
+
+    user_dir = os.path.join(BLOG_UPLOAD_FOLDER, str(user_id))
+    base_dir = os.path.abspath(user_dir)
+    target = os.path.abspath(os.path.join(user_dir, filename))
+
+    # Prevent path traversal
+    if not target.startswith(base_dir + os.sep):
+        abort(404)
+
+    if not os.path.exists(target):
+        abort(404)
+
+    return send_from_directory(user_dir, filename)
+
+
+# =============================================================================
 # Register Blueprints (must be after all route definitions)
 # =============================================================================
 app.register_blueprint(core_bp)
@@ -17974,5 +18440,6 @@ app.register_blueprint(projects_bp)
 app.register_blueprint(tools_bp)
 app.register_blueprint(rest_api_bp, url_prefix="/api/v1")
 app.register_blueprint(weather_bp, url_prefix="/api/v1/weather")
+app.register_blueprint(blog_bp, url_prefix="/blog")
 
 # ── API-key bootstrap (single-use

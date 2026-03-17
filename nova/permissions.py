@@ -137,6 +137,14 @@ SYSTEM_PERMISSIONS = [
     # Mobile Interface
     # =========================================================================
     ("mobile.access", "Access mobile interface"),
+    # =========================================================================
+    # Blog / Community
+    # =========================================================================
+    ("blog.view", "View blog posts from all users"),
+    ("blog.create", "Create new blog posts"),
+    ("blog.edit", "Edit own blog posts"),
+    ("blog.delete", "Delete own blog posts"),
+    ("blog.comment", "Post comments on blog posts"),
 ]
 
 
@@ -218,6 +226,7 @@ PERMISSION_CATEGORIES = {
         "shared.objects.fork",
     ],
     "Mobile": ["mobile.access"],
+    "Blog": ["blog.view", "blog.create", "blog.edit", "blog.delete", "blog.comment"],
 }
 
 
@@ -292,6 +301,12 @@ DEFAULT_ROLE_PERMISSIONS = {
         "shared.objects.fork",
         # Mobile access
         "mobile.access",
+        # Blog (full access)
+        "blog.view",
+        "blog.create",
+        "blog.edit",
+        "blog.delete",
+        "blog.comment",
     ],
     "readonly": [
         # View-only access
@@ -312,6 +327,9 @@ DEFAULT_ROLE_PERMISSIONS = {
         "shared.views.view",
         "shared.components.view",
         "mobile.access",
+        # Blog (view + comment for readonly users)
+        "blog.view",
+        "blog.comment",
     ],
 }
 

@@ -187,6 +187,14 @@ class DbUser(Base):
         "Project", back_populates="user", cascade="all, delete-orphan"
     )
 
+    # --- Blog relationships ---
+    blog_posts = relationship(
+        "BlogPost", back_populates="user", cascade="all, delete-orphan"
+    )
+    blog_comments = relationship(
+        "BlogComment", back_populates="user", cascade="all, delete-orphan"
+    )
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -606,3 +614,91 @@ class ApiKey(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     db_user = relationship("DbUser", backref="api_keys")
+
+
+# ── Blog ──────────────────────────────────────────────────────────────────────
+
+
+class BlogPost(Base):
+    """Blog post for sharing astrophotography images and session write-ups."""
+
+    __tablename__ = "blog_posts"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title = Column(String(256), nullable=False)
+    content = Column(Text, nullable=False)  # raw Markdown
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    user = relationship("DbUser", back_populates="blog_posts")
+    images = relationship(
+        "BlogImage",
+        back_populates="post",
+        order_by="BlogImage.display_order",
+        cascade="all, delete-orphan",
+    )
+    comments = relationship(
+        "BlogComment",
+        back_populates="post",
+        order_by="BlogComment.created_at",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self):
+        return f"<BlogPost {self.id}: {self.title!r}>"
+
+
+class BlogImage(Base):
+    """Image attached to a blog post (astrophotography uploads)."""
+
+    __tablename__ = "blog_images"
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(
+        Integer,
+        ForeignKey("blog_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Stored in: instance/uploads/blog/<user_id>/<filename>
+    filename = Column(String(255), nullable=False)  # blog_<uuid>.ext (original)
+    thumb_filename = Column(
+        String(255), nullable=True
+    )  # blog_thumb_<uuid>.jpg (≤400×400)
+    caption = Column(String(500), nullable=True)
+    display_order = Column(Integer, nullable=False, default=0)
+
+    post = relationship("BlogPost", back_populates="images")
+
+    def __repr__(self):
+        return f"<BlogImage {self.id} post={self.post_id}>"
+
+
+class BlogComment(Base):
+    """Comment on a blog post."""
+
+    __tablename__ = "blog_comments"
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(
+        Integer,
+        ForeignKey("blog_posts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    content = Column(Text, nullable=False)  # Markdown, max 2000 chars enforced in route
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    post = relationship("BlogPost", back_populates="comments")
+    user = relationship("DbUser", back_populates="blog_comments")
+
+    def __repr__(self):
+        return f"<BlogComment {self.id} post={self.post_id} user={self.user_id}>"
