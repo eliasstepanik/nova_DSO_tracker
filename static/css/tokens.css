@@ -85,6 +85,27 @@
   --radius-md: 8px;     /* Standard inputs, buttons */
   --radius-lg: 12px;     /* Larger buttons, cards */
   --radius-xl: 16px;     /* Modals, containers */
+
+  /* =================================================================
+     TOUCH TARGET TOKENS
+     iOS HIG/WCAG 2.5.5 minimum: 44×44px
+     ================================================================ */
+  --touch-min: 44px;
+
+  /* =================================================================
+     SAFE AREA TOKENS
+     For iPhone notch/home indicator areas (viewport-fit=cover)
+     ================================================================ */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* =================================================================
+     Z-INDEX SCALE EXTENSION
+     For off-canvas drawer (between sticky and modal)
+     ================================================================ */
+  --z-drawer: 1100;
 }
 
 /* =====================================================================
