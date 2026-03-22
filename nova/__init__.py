@@ -247,7 +247,11 @@ from nova.blueprints.tools import tools_bp
 from nova.blueprints.rest_api import rest_api_bp
 from nova.blueprints.weather import weather_bp
 from nova.blueprints.blog import blog_bp
-from nova.api_auth import ensure_single_user_api_key, api_key_or_login_required
+from nova.api_auth import (
+    ensure_single_user_api_key,
+    api_key_or_login_required,
+    create_api_key,
+)
 
 
 # =============================================================================
@@ -9759,6 +9763,130 @@ def change_username():
     return redirect(url_for("core.config_form") + "#account")
 
 
+# =============================================================================
+# API KEY MANAGEMENT (WEB UI)
+# =============================================================================
+
+
+@core_bp.route("/account/api-keys/create", methods=["POST"])
+@login_required
+@permission_required("api_keys.manage")
+def create_api_key_web():
+    """Create a new API key from the web UI."""
+    if SINGLE_USER_MODE:
+        flash(_("API key management is not available in single-user mode."), "error")
+        return redirect(url_for("core.config_form"))
+
+    name = request.form.get("key_name", "").strip() or "unnamed"
+    db_sess = SessionLocal()
+    try:
+        active_count = (
+            db_sess.query(ApiKey)
+            .filter(ApiKey.user_id == current_user.id, ApiKey.is_active.is_(True))
+            .count()
+        )
+        if active_count >= 25:
+            flash(
+                _(
+                    "Maximum 25 active API keys reached. Revoke one before creating a new key."
+                ),
+                "error",
+            )
+            return redirect(url_for("core.config_form") + "#account")
+
+        raw_key = create_api_key(db_sess, current_user.id, name=name)
+        session["new_api_key"] = raw_key
+        flash(
+            _("API key created. Copy it now — it will not be shown again."), "success"
+        )
+    except Exception:
+        db_sess.rollback()
+        logging.exception("Error creating API key")
+        flash(_("An error occurred while creating the API key."), "error")
+    finally:
+        db_sess.close()
+
+    return redirect(url_for("core.config_form") + "#account")
+
+
+@core_bp.route("/account/api-keys/<int:key_id>/revoke", methods=["POST"])
+@login_required
+@permission_required("api_keys.manage")
+def revoke_api_key_web(key_id):
+    """Revoke (soft-delete) an API key from the web UI."""
+    if SINGLE_USER_MODE:
+        flash(_("API key management is not available in single-user mode."), "error")
+        return redirect(url_for("core.config_form"))
+
+    db_sess = SessionLocal()
+    try:
+        key = (
+            db_sess.query(ApiKey)
+            .filter(ApiKey.id == key_id, ApiKey.user_id == current_user.id)
+            .first()
+        )
+        if not key:
+            flash(_("API key not found."), "error")
+        elif not key.is_active:
+            flash(_("This API key has already been revoked."), "error")
+        else:
+            key.is_active = False
+            db_sess.commit()
+            flash(_("API key revoked."), "success")
+    except Exception:
+        db_sess.rollback()
+        logging.exception("Error revoking API key")
+        flash(_("An error occurred while revoking the API key."), "error")
+    finally:
+        db_sess.close()
+
+    return redirect(url_for("core.config_form") + "#account")
+
+
+@core_bp.route("/account/api-keys/<int:key_id>/regenerate", methods=["POST"])
+@login_required
+@permission_required("api_keys.manage")
+def regenerate_api_key_web(key_id):
+    """Rotate an API key: revoke old one, create new one with the same name."""
+    if SINGLE_USER_MODE:
+        flash(_("API key management is not available in single-user mode."), "error")
+        return redirect(url_for("core.config_form"))
+
+    db_sess = SessionLocal()
+    try:
+        old_key = (
+            db_sess.query(ApiKey)
+            .filter(ApiKey.id == key_id, ApiKey.user_id == current_user.id)
+            .first()
+        )
+        if not old_key:
+            flash(_("API key not found."), "error")
+            return redirect(url_for("core.config_form") + "#account")
+
+        if not old_key.is_active:
+            flash(_("Cannot regenerate a revoked key."), "error")
+            return redirect(url_for("core.config_form") + "#account")
+
+        name = old_key.name
+        old_key.is_active = False
+        db_sess.commit()  # Revoke first — don't exceed active limit
+
+        raw_key = create_api_key(db_sess, current_user.id, name=name)
+        session["new_api_key"] = raw_key
+        flash(
+            _("API key regenerated. Copy the new key — it will not be shown again."),
+            "success",
+        )
+    except Exception:
+        db_sess.rollback()
+        logging.exception("Error regenerating API key")
+        flash(_("An error occurred while regenerating the API key."), "error")
+    finally:
+        db_sess.close()
+
+    return redirect(url_for("core.config_form") + "#account")
+
+
 @core_bp.route("/sso/login")
 def sso_login():
     # First, check if the app is in single-user mode. SSO is not applicable here.
@@ -13583,12 +13711,27 @@ def config_form():
             config_for_template["objects"].append(obj_data_dict)
 
         catalog_packs = discover_catalog_packs()
+
+        # --- API Keys (multi-user only) ---
+        new_api_key = session.pop("new_api_key", None)
+        if not SINGLE_USER_MODE:
+            user_api_keys = (
+                db.query(ApiKey)
+                .filter(ApiKey.user_id == app_db_user.id)
+                .order_by(ApiKey.created_at.desc())
+                .all()
+            )
+        else:
+            user_api_keys = []
+
         return render_template(
             "config_form.html",
             config=config_for_template,
             locations=locations_for_template,
             all_timezones=pytz.all_timezones,
             catalog_packs=catalog_packs,
+            api_keys=user_api_keys,
+            new_api_key=new_api_key,
         )
 
     except Exception as e:
