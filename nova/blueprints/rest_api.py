@@ -18,6 +18,7 @@ from nova.api_auth import (
     key_prefix as _key_prefix,
 )
 from nova.permissions import api_admin_required, api_permission_required
+from sqlalchemy.orm import selectinload
 from nova.models import (
     SessionLocal,
     DbUser,
@@ -203,8 +204,6 @@ def _serialize_component(c):
         "focal_length_mm": c.focal_length_mm,
         "sensor_width_mm": c.sensor_width_mm,
         "sensor_height_mm": c.sensor_height_mm,
-        "resolution_width_px": c.resolution_width_px,
-        "resolution_height_px": c.resolution_height_px,
         "pixel_size_um": c.pixel_size_um,
         "factor": c.factor,
         "is_shared": c.is_shared,
@@ -223,7 +222,6 @@ def _serialize_rig(r):
         "f_ratio": r.f_ratio,
         "image_scale": r.image_scale,
         "fov_w_arcmin": r.fov_w_arcmin,
-        "fov_h_arcmin": r.fov_h_arcmin,
         "guide_telescope_id": r.guide_telescope_id,
         "guide_camera_id": r.guide_camera_id,
         "guide_is_oag": r.guide_is_oag,
@@ -239,56 +237,47 @@ def _serialize_session(s):
         "notes": s.notes,
         "session_image_file": s.session_image_file,
         "location_name": s.location_name,
-        "seeing": s.seeing,
-        "moon_phase_pct": s.moon_phase_pct,
-        "moon_proximity_deg": s.moon_proximity_deg,
-        "weather": s.weather,
-        "temperature_c": s.temperature_c,
-        "humidity_pct": s.humidity_pct,
-        "wind_kph": s.wind_kph,
-        "bortle": s.bortle,
-        "sqm": s.sqm,
-        "filter_type": s.filter_type,
-        "guiding_rms": s.guiding_rms,
-        "dither_enabled": s.dither_enabled,
+        "seeing": s.seeing_observed_fwhm,
+        "moon_phase_pct": s.moon_illumination_session,
+        "moon_proximity_deg": s.moon_angular_separation_session,
+        "weather": s.weather_notes,
+        "sqm": s.sky_sqm_observed,
+        "filter_type": s.filter_used_session,
+        "guiding_rms": s.guiding_rms_avg_arcsec,
         "acquisition_software": s.acquisition_software,
-        "guiding_software": s.guiding_software,
-        "gain": s.gain,
-        "offset": s.offset,
-        "camera_temp_c": s.camera_temp_c,
-        "binning": s.binning,
-        "dark_frames": s.dark_frames,
-        "flat_frames": s.flat_frames,
-        "bias_frames": s.bias_frames,
-        "rating": s.rating,
-        "transparency": s.transparency,
-        "l_subs": s.l_subs,
-        "l_exposure": s.l_exposure,
-        "r_subs": s.r_subs,
-        "r_exposure": s.r_exposure,
-        "g_subs": s.g_subs,
-        "g_exposure": s.g_exposure,
-        "b_subs": s.b_subs,
-        "b_exposure": s.b_exposure,
-        "ha_subs": s.ha_subs,
-        "ha_exposure": s.ha_exposure,
-        "oiii_subs": s.oiii_subs,
-        "oiii_exposure": s.oiii_exposure,
-        "sii_subs": s.sii_subs,
-        "sii_exposure": s.sii_exposure,
+        "gain": s.gain_setting,
+        "offset": s.offset_setting,
+        "camera_temp_c": s.camera_temp_setpoint_c,
+        "binning": s.binning_session,
+        "dark_frames": s.darks_strategy,
+        "flat_frames": s.flats_strategy,
+        "bias_frames": s.bias_darkflats_strategy,
+        "rating": s.session_rating_subjective,
+        "transparency": s.transparency_observed_scale,
+        "l_subs": s.filter_L_subs,
+        "l_exposure": s.filter_L_exposure_sec,
+        "r_subs": s.filter_R_subs,
+        "r_exposure": s.filter_R_exposure_sec,
+        "g_subs": s.filter_G_subs,
+        "g_exposure": s.filter_G_exposure_sec,
+        "b_subs": s.filter_B_subs,
+        "b_exposure": s.filter_B_exposure_sec,
+        "ha_subs": s.filter_Ha_subs,
+        "ha_exposure": s.filter_Ha_exposure_sec,
+        "oiii_subs": s.filter_OIII_subs,
+        "oiii_exposure": s.filter_OIII_exposure_sec,
+        "sii_subs": s.filter_SII_subs,
+        "sii_exposure": s.filter_SII_exposure_sec,
         "custom_filter_data": s.custom_filter_data,
         "calculated_integration_time_minutes": s.calculated_integration_time_minutes,
-        "rig_snapshot_telescope": s.rig_snapshot_telescope,
-        "rig_snapshot_camera": s.rig_snapshot_camera,
-        "rig_snapshot_reducer": s.rig_snapshot_reducer,
-        "rig_snapshot_efl": s.rig_snapshot_efl,
-        "rig_snapshot_fratio": s.rig_snapshot_fratio,
-        "rig_snapshot_image_scale": s.rig_snapshot_image_scale,
-        "rig_snapshot_fov_w": s.rig_snapshot_fov_w,
-        "rig_snapshot_fov_h": s.rig_snapshot_fov_h,
-        "rig_snapshot_guide_telescope": s.rig_snapshot_guide_telescope,
-        "rig_snapshot_guide_camera": s.rig_snapshot_guide_camera,
-        "rig_snapshot_guide_is_oag": s.rig_snapshot_guide_is_oag,
+        "rig_snapshot_telescope": s.telescope_name_snapshot,
+        "rig_snapshot_camera": s.camera_name_snapshot,
+        "rig_snapshot_reducer": s.reducer_name_snapshot,
+        "rig_snapshot_efl": s.rig_efl_snapshot,
+        "rig_snapshot_fratio": s.rig_fr_snapshot,
+        "rig_snapshot_image_scale": s.rig_scale_snapshot,
+        "rig_snapshot_fov_w": s.rig_fov_w_snapshot,
+        "rig_snapshot_fov_h": s.rig_fov_h_snapshot,
         "external_id": s.external_id,
     }
 
@@ -308,26 +297,16 @@ def _serialize_framing(f):
         "id": f.id,
         "object_name": f.object_name,
         "rig_id": f.rig_id,
-        "rig_effective_focal_length": f.rig_effective_focal_length,
-        "rig_fov_w_arcmin": f.rig_fov_w_arcmin,
-        "rig_fov_h_arcmin": f.rig_fov_h_arcmin,
-        "rig_image_scale": f.rig_image_scale,
-        "rig_resolution_width_px": f.rig_resolution_width_px,
-        "rig_resolution_height_px": f.rig_resolution_height_px,
-        "survey_name": f.survey_name,
-        "survey_ra_hours": f.survey_ra_hours,
-        "survey_dec_deg": f.survey_dec_deg,
-        "survey_fov_deg": f.survey_fov_deg,
-        "survey_rotation_deg": f.survey_rotation_deg,
-        "survey_width_px": f.survey_width_px,
-        "survey_height_px": f.survey_height_px,
-        "mosaic_panels_x": f.mosaic_panels_x,
-        "mosaic_panels_y": f.mosaic_panels_y,
-        "mosaic_overlap_pct": f.mosaic_overlap_pct,
-        "image_brightness": f.image_brightness,
-        "image_contrast": f.image_contrast,
-        "image_saturation": f.image_saturation,
-        "image_invert": f.image_invert,
+        "survey_name": f.survey,
+        "survey_ra_hours": f.ra,
+        "survey_dec_deg": f.dec,
+        "survey_rotation_deg": f.rotation,
+        "mosaic_panels_x": f.mosaic_cols,
+        "mosaic_panels_y": f.mosaic_rows,
+        "mosaic_overlap_pct": f.mosaic_overlap,
+        "image_brightness": f.img_brightness,
+        "image_contrast": f.img_contrast,
+        "image_saturation": f.img_saturation,
         "geo_belt_enabled": f.geo_belt_enabled,
         "updated_at": f.updated_at.isoformat() if f.updated_at else None,
     }
@@ -1026,8 +1005,6 @@ def _apply_component_fields(c, data):
         "focal_length_mm",
         "sensor_width_mm",
         "sensor_height_mm",
-        "resolution_width_px",
-        "resolution_height_px",
         "pixel_size_um",
         "factor",
         "is_shared",
@@ -1165,7 +1142,6 @@ def _apply_rig_fields(r, data):
         "f_ratio",
         "image_scale",
         "fov_w_arcmin",
-        "fov_h_arcmin",
         "guide_telescope_id",
         "guide_camera_id",
         "guide_is_oag",
@@ -1316,75 +1292,69 @@ def _apply_session_fields(s, data):
         "notes",
         "session_image_file",
         "location_name",
-        "seeing",
-        "weather",
-        "filter_type",
         "acquisition_software",
-        "guiding_software",
-        "binning",
-        "transparency",
-        "rig_snapshot_telescope",
-        "rig_snapshot_camera",
-        "rig_snapshot_reducer",
-        "rig_snapshot_guide_telescope",
-        "rig_snapshot_guide_camera",
         "external_id",
     ]
     for f in simple_str:
         if f in data:
             setattr(s, f, data[f])
 
-    float_fields = [
-        "moon_phase_pct",
-        "moon_proximity_deg",
-        "temperature_c",
-        "humidity_pct",
-        "wind_kph",
-        "sqm",
-        "guiding_rms",
-        "camera_temp_c",
-        "rig_snapshot_efl",
-        "rig_snapshot_fratio",
-        "rig_snapshot_image_scale",
-        "rig_snapshot_fov_w",
-        "rig_snapshot_fov_h",
-        "calculated_integration_time_minutes",
-        "l_exposure",
-        "r_exposure",
-        "g_exposure",
-        "b_exposure",
-        "ha_exposure",
-        "oiii_exposure",
-        "sii_exposure",
-    ]
-    for f in float_fields:
-        if f in data:
-            setattr(s, f, _to_float(data[f]))
+    str_mapped_fields = {
+        "weather": "weather_notes",
+        "filter_type": "filter_used_session",
+        "binning": "binning_session",
+        "dark_frames": "darks_strategy",
+        "flat_frames": "flats_strategy",
+        "bias_frames": "bias_darkflats_strategy",
+        "transparency": "transparency_observed_scale",
+        "rig_snapshot_telescope": "telescope_name_snapshot",
+        "rig_snapshot_camera": "camera_name_snapshot",
+        "rig_snapshot_reducer": "reducer_name_snapshot",
+    }
+    for json_field, model_field in str_mapped_fields.items():
+        if json_field in data:
+            setattr(s, model_field, data[json_field])
 
-    int_fields = [
-        "bortle",
-        "gain",
-        "offset",
-        "dark_frames",
-        "flat_frames",
-        "bias_frames",
-        "rating",
-        "l_subs",
-        "r_subs",
-        "g_subs",
-        "b_subs",
-        "ha_subs",
-        "oiii_subs",
-        "sii_subs",
-    ]
-    for f in int_fields:
-        if f in data:
-            setattr(s, f, _to_int(data[f]))
+    float_mapped_fields = {
+        "seeing": "seeing_observed_fwhm",
+        "moon_proximity_deg": "moon_angular_separation_session",
+        "sqm": "sky_sqm_observed",
+        "guiding_rms": "guiding_rms_avg_arcsec",
+        "camera_temp_c": "camera_temp_setpoint_c",
+        "rig_snapshot_efl": "rig_efl_snapshot",
+        "rig_snapshot_fratio": "rig_fr_snapshot",
+        "rig_snapshot_image_scale": "rig_scale_snapshot",
+        "rig_snapshot_fov_w": "rig_fov_w_snapshot",
+        "rig_snapshot_fov_h": "rig_fov_h_snapshot",
+        "calculated_integration_time_minutes": "calculated_integration_time_minutes",
+    }
+    for json_field, model_field in float_mapped_fields.items():
+        if json_field in data:
+            setattr(s, model_field, _to_float(data[json_field]))
 
-    bool_fields = ["dither_enabled", "rig_snapshot_guide_is_oag"]
-    for f in bool_fields:
-        if f in data:
-            setattr(s, f, _to_bool(data[f]))
+    int_mapped_fields = {
+        "moon_phase_pct": "moon_illumination_session",
+        "gain": "gain_setting",
+        "offset": "offset_setting",
+        "rating": "session_rating_subjective",
+        "l_subs": "filter_L_subs",
+        "l_exposure": "filter_L_exposure_sec",
+        "r_subs": "filter_R_subs",
+        "r_exposure": "filter_R_exposure_sec",
+        "g_subs": "filter_G_subs",
+        "g_exposure": "filter_G_exposure_sec",
+        "b_subs": "filter_B_subs",
+        "b_exposure": "filter_B_exposure_sec",
+        "ha_subs": "filter_Ha_subs",
+        "ha_exposure": "filter_Ha_exposure_sec",
+        "oiii_subs": "filter_OIII_subs",
+        "oiii_exposure": "filter_OIII_exposure_sec",
+        "sii_subs": "filter_SII_subs",
+        "sii_exposure": "filter_SII_exposure_sec",
+    }
+    for json_field, model_field in int_mapped_fields.items():
+        if json_field in data:
+            setattr(s, model_field, _to_int(data[json_field]))
 
     if "project_id" in data:
         s.project_id = data["project_id"]
@@ -1631,33 +1601,27 @@ def delete_framing(framing_id):
 
 
 def _apply_framing_fields(f, data):
-    for field in [
-        "object_name",
-        "rig_id",
-        "rig_effective_focal_length",
-        "rig_fov_w_arcmin",
-        "rig_fov_h_arcmin",
-        "rig_image_scale",
-        "rig_resolution_width_px",
-        "rig_resolution_height_px",
-        "survey_name",
-        "survey_ra_hours",
-        "survey_dec_deg",
-        "survey_fov_deg",
-        "survey_rotation_deg",
-        "survey_width_px",
-        "survey_height_px",
-        "mosaic_panels_x",
-        "mosaic_panels_y",
-        "mosaic_overlap_pct",
-        "image_brightness",
-        "image_contrast",
-        "image_saturation",
-        "image_invert",
-        "geo_belt_enabled",
-    ]:
-        if field in data:
-            setattr(f, field, data[field])
+    if "object_name" in data:
+        f.object_name = data["object_name"]
+    if "rig_id" in data:
+        f.rig_id = data["rig_id"]
+
+    mapped_fields = {
+        "survey_name": "survey",
+        "survey_ra_hours": "ra",
+        "survey_dec_deg": "dec",
+        "survey_rotation_deg": "rotation",
+        "mosaic_panels_x": "mosaic_cols",
+        "mosaic_panels_y": "mosaic_rows",
+        "mosaic_overlap_pct": "mosaic_overlap",
+        "image_brightness": "img_brightness",
+        "image_contrast": "img_contrast",
+        "image_saturation": "img_saturation",
+        "geo_belt_enabled": "geo_belt_enabled",
+    }
+    for json_field, model_field in mapped_fields.items():
+        if json_field in data:
+            setattr(f, model_field, data[json_field])
     f.updated_at = datetime.utcnow()
 
 
@@ -2078,7 +2042,12 @@ def admin_list_users():
         return _err("Not available in single-user mode", 403)
     db = _db()
     try:
-        users = db.query(DbUser).order_by(DbUser.username).all()
+        users = (
+            db.query(DbUser)
+            .options(selectinload(DbUser.roles))
+            .order_by(DbUser.username)
+            .all()
+        )
         return _ok(
             [
                 {

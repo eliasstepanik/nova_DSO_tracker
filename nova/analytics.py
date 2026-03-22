@@ -8,6 +8,7 @@ GDPR-compliant analytics system for tracking feature usage and login activity.
 - Only runs in multi-user mode (SINGLE_USER_MODE=False)
 - Users can be excluded via ANALYTICS_EXCLUDE_USERS env var
 """
+
 import os
 from datetime import date
 from flask import current_app
@@ -16,9 +17,9 @@ from flask_login import current_user
 
 def _is_excluded() -> bool:
     """Return True if the current user should be excluded from analytics."""
-    excluded_raw = os.getenv('ANALYTICS_EXCLUDE_USERS', '')
+    excluded_raw = os.getenv("ANALYTICS_EXCLUDE_USERS", "")
     # Normalize: strip whitespace and convert to lowercase for comparison
-    excluded = [u.strip().lower() for u in excluded_raw.split(',') if u.strip()]
+    excluded = [u.strip().lower() for u in excluded_raw.split(",") if u.strip()]
     try:
         if current_user.is_authenticated:
             username_lower = current_user.username.strip().lower()
@@ -30,8 +31,8 @@ def _is_excluded() -> bool:
 
 def _is_enabled() -> bool:
     """Analytics only runs in multi-user mode."""
-    single_user = os.getenv('SINGLE_USER_MODE', 'True').strip().lower()
-    return single_user == 'false'
+    single_user = os.getenv("SINGLE_USER_MODE", "True").strip().lower()
+    return single_user == "false"
 
 
 def record_event(event_name: str) -> None:
@@ -47,13 +48,13 @@ def record_event(event_name: str) -> None:
     try:
         from nova.models import AnalyticsEvent, SessionLocal
         from sqlalchemy import select
+
         today = date.today()
         session = SessionLocal()
 
         try:
             stmt = select(AnalyticsEvent).where(
-                AnalyticsEvent.event_name == event_name,
-                AnalyticsEvent.date == today
+                AnalyticsEvent.event_name == event_name, AnalyticsEvent.date == today
             )
             row = session.execute(stmt).scalar_one_or_none()
             if row:
@@ -63,7 +64,7 @@ def record_event(event_name: str) -> None:
                 session.add(row)
             session.commit()
         finally:
-            session.close()
+            SessionLocal.remove()
     except Exception as e:
         try:
             current_app.logger.debug(f"[ANALYTICS] record_event failed: {e}")
@@ -81,6 +82,7 @@ def record_login() -> None:
     try:
         from nova.models import AnalyticsLogin, SessionLocal
         from sqlalchemy import select
+
         today = date.today()
         session = SessionLocal()
 
@@ -94,7 +96,7 @@ def record_login() -> None:
                 session.add(row)
             session.commit()
         finally:
-            session.close()
+            SessionLocal.remove()
     except Exception as e:
         try:
             current_app.logger.debug(f"[ANALYTICS] record_login failed: {e}")
