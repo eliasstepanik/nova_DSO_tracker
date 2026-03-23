@@ -3,14 +3,36 @@ import re
 import tempfile
 import shutil
 import yaml
+import uuid
 import numpy as np
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import g, jsonify
+from PIL import Image as _PILImage
 
 from nova.models import SessionLocal
-from nova.config import INSTANCE_PATH, BACKUP_DIR, ALLOWED_EXTENSIONS, SINGLE_USER_MODE
+from nova.config import (
+    INSTANCE_PATH,
+    BACKUP_DIR,
+    ALLOWED_EXTENSIONS,
+    SINGLE_USER_MODE,
+    BLOG_UPLOAD_FOLDER,
+)
+
+if TYPE_CHECKING:
+    from nova.models import BlogImage
+
+# === Blog image constants ===
+try:
+    _BLOG_LANCZOS = _PILImage.Resampling.LANCZOS
+except AttributeError:
+    _BLOG_LANCZOS = _PILImage.LANCZOS
+
+BLOG_THUMB_MAX = (400, 400)
+BLOG_THUMB_QUAL = 85
+BLOG_COMMENT_MAX_LEN = 2000
 
 try:
     import fcntl
@@ -471,3 +493,95 @@ def get_imaging_criteria():
         return out
     except Exception:
         return dict(defaults)
+
+
+# === Blog image helpers ===
+
+
+def _save_blog_image(
+    file, user_id: int, post_id: int, order: int, caption: str
+) -> "BlogImage | None":
+    """
+    Validate, save, and thumbnail a blog image upload.
+
+    Storage layout:
+        instance/uploads/blog/<user_id>/blog_<uuid>.ext     (original)
+        instance/uploads/blog/<user_id>/blog_thumb_<uuid>.jpg (≤400×400)
+
+    Returns a BlogImage ORM object (not yet added to session) or None on failure.
+    """
+    from nova.models import BlogImage
+
+    if not file or file.filename == "":
+        return None
+    if not allowed_file(file.filename):
+        return None
+
+    ext = file.filename.rsplit(".", 1)[1].lower()
+    uid = uuid.uuid4().hex
+    orig_name = f"blog_{uid}.{ext}"
+    thumb_name = f"blog_thumb_{uid}.jpg"
+
+    user_blog_dir = os.path.join(BLOG_UPLOAD_FOLDER, str(user_id))
+    os.makedirs(user_blog_dir, exist_ok=True)
+
+    orig_path = os.path.join(user_blog_dir, orig_name)
+    thumb_path = os.path.join(user_blog_dir, thumb_name)
+
+    try:
+        file.save(orig_path)
+
+        with _PILImage.open(orig_path) as img:
+            # Normalise colour mode for JPEG output
+            if img.mode in ("RGBA", "P", "LA"):
+                background = _PILImage.new("RGB", img.size, (0, 0, 0))
+                alpha = img.convert("RGBA").split()[-1]
+                background.paste(img.convert("RGBA"), mask=alpha)
+                img = background
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+
+            img.thumbnail(BLOG_THUMB_MAX, resample=_BLOG_LANCZOS)
+            img.save(
+                thumb_path,
+                format="JPEG",
+                quality=BLOG_THUMB_QUAL,
+                optimize=True,
+                progressive=True,
+            )
+
+        return BlogImage(
+            post_id=post_id,
+            filename=orig_name,
+            thumb_filename=thumb_name,
+            caption=caption or "",
+            display_order=order,
+        )
+
+    except Exception as e:
+        print(f"[BLOG] Error saving blog image: {e}")
+        # Clean up partial files
+        for p in (orig_path, thumb_path):
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+        return None
+
+
+def _delete_blog_image_files(image: "BlogImage", user_id: int) -> None:
+    """
+    Delete the original and thumbnail files for a BlogImage from disk.
+    Silently ignores missing files.
+    """
+    user_blog_dir = os.path.join(BLOG_UPLOAD_FOLDER, str(user_id))
+    for filename in (image.filename, image.thumb_filename):
+        if not filename:
+            continue
+        path = os.path.join(user_blog_dir, filename)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except OSError as e:
+                print(f"[BLOG] Could not delete image file {path}: {e}")

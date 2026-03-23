@@ -13,6 +13,7 @@ from functools import wraps
 
 from flask import request, jsonify, g, current_app
 from flask_login import current_user
+from sqlalchemy.orm import selectinload
 
 from nova.models import SessionLocal, ApiKey, DbUser
 from nova.config import SINGLE_USER_MODE
@@ -52,7 +53,11 @@ def create_api_key(db, user_id: int, name: str = "default") -> str:
 
 
 def verify_api_key(raw_key: str):
-    """Look up an API key and return the (ApiKey, DbUser) or (None, None)."""
+    """Look up an API key and return the (ApiKey, DbUser) or (None, None).
+
+    The DbUser is returned with roles eagerly loaded to avoid DetachedInstanceError
+    when checking permissions after the session is removed.
+    """
     hashed = hash_api_key(raw_key)
     db = SessionLocal()
     try:
@@ -66,7 +71,13 @@ def verify_api_key(raw_key: str):
         )
         if api_key is None:
             return None, None
-        db_user = db.query(DbUser).filter(DbUser.id == api_key.user_id).first()
+        # Eagerly load roles to avoid DetachedInstanceError when checking permissions
+        db_user = (
+            db.query(DbUser)
+            .options(selectinload(DbUser.roles))
+            .filter(DbUser.id == api_key.user_id)
+            .first()
+        )
         if db_user is None:
             return None, None
         # Update last-used timestamp (fire-and-forget)
@@ -74,7 +85,7 @@ def verify_api_key(raw_key: str):
         db.commit()
         return api_key, db_user
     finally:
-        db.remove()
+        SessionLocal.remove()
 
 
 def _extract_api_key_from_request():
@@ -207,4 +218,4 @@ def ensure_single_user_api_key(app):
         print("=" * 60 + "\n")
         app.logger.info(f"Generated new API key (prefix: {key_prefix(raw_key)}...)")
     finally:
-        db.remove()
+        SessionLocal.remove()
