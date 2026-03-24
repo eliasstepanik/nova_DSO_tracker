@@ -86,7 +86,6 @@ iers.conf.auto_max_age = None  # Allow using old IERS data without errors
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import text, func
 from sqlalchemy.orm import selectinload, joinedload
-import getpass
 import jwt
 
 from modules.astro_calculations import (
@@ -1856,14 +1855,15 @@ def _heal_saved_framings(db, user: DbUser):
             .all()
         )
 
+        # Pre-load all user's rigs into a dict to avoid N+1 queries
+        rig_map = {
+            r.rig_name: r for r in db.query(Rig).filter(Rig.user_id == user.id).all()
+        }
+
         count = 0
         for f in orphans:
-            # Try to find the rig by name
-            rig = (
-                db.query(Rig)
-                .filter_by(user_id=user.id, rig_name=f.rig_name)
-                .one_or_none()
-            )
+            # Lookup rig from pre-loaded map instead of querying each time
+            rig = rig_map.get(f.rig_name)
             if rig:
                 f.rig_id = rig.id
                 count += 1
@@ -7692,6 +7692,7 @@ def get_outlook_data():
 
 
 @api_bp.route("/api/latest_version")
+@login_required
 @permission_required("settings.view")
 def get_latest_version():
     """An API endpoint for the frontend to check for updates."""
@@ -9580,6 +9581,7 @@ def get_static_nightly_values(
 
 
 @core_bp.route("/trigger_update", methods=["POST"])
+@login_required
 @permission_required("settings.edit")
 def trigger_update():
     try:
@@ -9613,11 +9615,8 @@ def login():
                     flash("Account is deactivated.", "error")
                     return render_template("login.html")
                 db_sess.expunge(user)
-                print(
-                    f"[DEBUG login] Calling login_user for user.id={user.id}, username={user.username}"
-                )
+                session.regenerate()  # Prevent session fixation attacks
                 login_user(user, remember=True)
-                print(f"[DEBUG login] After login_user, session={dict(session)}")
                 record_login()
                 session.modified = True
                 flash("Logged in successfully!", "success")
@@ -9908,6 +9907,7 @@ def sso_login():
             user = db_sess.query(DbUser).filter_by(username=username).first()
             if user and user.is_active:
                 db_sess.expunge(user)
+                session.regenerate()  # Prevent session fixation attacks
                 login_user(user)  # Log the user in using Flask-Login
                 record_login()
                 session.modified = True  # Force session save before redirect
@@ -9934,6 +9934,7 @@ def sso_login():
 
 
 @core_bp.route("/proxy_focus", methods=["POST"])
+@login_required
 @permission_required("settings.stellarium")
 def proxy_focus():
     payload = request.form
@@ -11743,23 +11744,34 @@ def bulk_update_objects():
 
             # We need to iterate to check relationships since bulk delete bypasses Python-level checks
             objects_to_check = query.all()
+            object_names = [obj.object_name for obj in objects_to_check]
+
+            # Batch query: get all object_names that have journals
+            names_with_journals = set(
+                r[0]
+                for r in db.query(JournalSession.object_name)
+                .filter(
+                    JournalSession.user_id == user_id,
+                    JournalSession.object_name.in_(object_names),
+                )
+                .all()
+            )
+
+            # Batch query: get all object_names that have projects
+            names_with_projects = set(
+                r[0]
+                for r in db.query(Project.target_object_name)
+                .filter(
+                    Project.user_id == user_id,
+                    Project.target_object_name.in_(object_names),
+                )
+                .all()
+            )
+
+            blocked_names = names_with_journals | names_with_projects
 
             for obj in objects_to_check:
-                # Check for journal sessions using this object name
-                has_journals = (
-                    db.query(JournalSession)
-                    .filter_by(user_id=user_id, object_name=obj.object_name)
-                    .first()
-                )
-
-                # Check for projects targeting this object
-                has_projects = (
-                    db.query(Project)
-                    .filter_by(user_id=user_id, target_object_name=obj.object_name)
-                    .first()
-                )
-
-                if has_journals or has_projects:
+                if obj.object_name in blocked_names:
                     skipped_count += 1
                 else:
                     safe_to_delete.append(obj.object_name)
@@ -12045,6 +12057,7 @@ def merge_objects():
 
 
 @api_bp.route("/api/help/img/<path:filename>")
+@login_required
 @permission_required("settings.view")
 def get_help_image(filename):
     """Serves images located in the help_docs directory."""
@@ -12052,6 +12065,7 @@ def get_help_image(filename):
 
 
 @api_bp.route("/api/help/<topic_id>")
+@login_required
 @permission_required("settings.view")
 def get_help_content(topic_id):
     """
@@ -16115,13 +16129,14 @@ register_cli(app)
 
 
 @api_bp.route("/api/internal/provision_user", methods=["POST"])
+@login_required
 @permission_required("settings.edit")
 def provision_user():
     data = request.get_json()
     provided_key = request.headers.get("X-Api-Key")
     expected_key = os.environ.get("PROVISIONING_API_KEY")
 
-    if not expected_key or provided_key != expected_key:
+    if not expected_key or not secrets.compare_digest(provided_key or "", expected_key):
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
     username = data.get("username")
@@ -16217,10 +16232,12 @@ def delete_user(username: str) -> bool:
 
 
 @api_bp.route("/api/internal/deprovision_user", methods=["POST"])
+@login_required
 @permission_required("settings.edit")
 def deprovision_user():
     api_key = request.headers.get("X-Api-Key")
-    if api_key != os.environ.get("PROVISIONING_API_KEY"):
+    expected_key = os.environ.get("PROVISIONING_API_KEY") or ""
+    if not expected_key or not secrets.compare_digest(api_key or "", expected_key):
         return jsonify({"status": "error", "message": "unauthorized"}), 401
 
     data = request.get_json(force=True) or {}
@@ -17764,4 +17781,4 @@ app.register_blueprint(rest_api_bp, url_prefix="/api/v1")
 app.register_blueprint(weather_bp, url_prefix="/api/v1/weather")
 app.register_blueprint(blog_bp, url_prefix="/blog")
 
-# ── API-key bootstrap (single-use
+# ── API-key bootstrap (single-use) ──────────────────────────────────────────

@@ -273,7 +273,7 @@ class SavedFraming(Base):
     __tablename__ = "saved_framings"
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    object_name = Column(String(256), nullable=False)
+    object_name = Column(String(256), nullable=False, index=True)
 
     # Framing Data
     rig_id = Column(Integer, ForeignKey("rigs.id", ondelete="SET NULL"), nullable=True)
@@ -476,8 +476,8 @@ class JournalSession(Base):
         nullable=True,
         index=True,
     )
-    date_utc = Column(Date, nullable=False)
-    object_name = Column(String(256), nullable=True)
+    date_utc = Column(Date, nullable=False, index=True)
+    object_name = Column(String(256), nullable=True, index=True)
     notes = Column(Text, nullable=True)
     session_image_file = Column(String(256), nullable=True)
 
