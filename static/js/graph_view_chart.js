@@ -2660,6 +2660,36 @@
         });
     }
     window.openInStellarium = openInStellarium;
+
+    function sendToNINA() {
+        var status = document.getElementById('nina-status');
+        if (!window.NovaNINA || !NovaNINA.isEnabled()) {
+            if (status) { status.textContent = 'NINA integration is not enabled. Configure it in Settings → NINA.'; status.style.color = 'var(--error-color, red)'; }
+            return;
+        }
+        var objectName = NOVA_GRAPH_DATA.objectName;
+        var raDeg = NOVA_GRAPH_DATA.objectRADeg;
+        var decDeg = NOVA_GRAPH_DATA.objectDECDeg;
+        if (raDeg === null || decDeg === null) {
+            if (status) { status.textContent = 'No coordinates available for this object.'; status.style.color = 'var(--error-color, red)'; }
+            return;
+        }
+        // Convert RA from degrees back to hours for NINA API (our helper expects hours)
+        var raHours = raDeg / 15.0;
+        if (status) { status.textContent = 'Sending "' + objectName + '" to NINA…'; status.style.color = 'var(--text-tertiary, #666)'; }
+        NovaNINA.sendToFramingAssistant(raHours, decDeg, objectName).then(function (res) {
+            if (!status) return;
+            if (res.success) {
+                status.textContent = res.message;
+                status.style.color = 'var(--success-color, #83b4c5)';
+            } else {
+                status.textContent = res.message;
+                status.style.color = 'var(--error-color, red)';
+            }
+        });
+    }
+    window.sendToNINA = sendToNINA;
+
     function startCurrentTimeUpdater(chartInstance) {
         if (!chartInstance) return;
         if (currentTimeUpdateInterval) clearInterval(currentTimeUpdateInterval);

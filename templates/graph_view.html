@@ -155,6 +155,7 @@
         <div id="project-framing-buttons" style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
             <button class="inline-button inline-button-ghost" data-action="open-framing-assistant">{{ _('Show Framing') }}</button>
             <button id="open-in-stellarium" class="inline-button" data-action="open-stellarium" style="display: none;">{{ _('Open in Stellarium') }}</button>
+            <button id="send-to-nina" class="inline-button nova-nina-action" data-action="send-to-nina" style="display: none;">{{ _('Send to NINA') }}</button>
             <!-- Dynamic saved framing buttons inserted here by JS -->
         </div>
 
@@ -178,6 +179,7 @@
                 </label>
             </div>
             <div id="stellarium-status" style="margin-top: 10px; color: var(--text-tertiary);"></div>
+            <div id="nina-status" style="margin-top: 10px; color: var(--text-tertiary);"></div>
         </div>
     </div>
 
@@ -423,6 +425,7 @@
     };
 </script>
 <script src="{{ url_for('static', filename='js/stellarium.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/nina.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/framing-utils.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/graph_view_chart.js') }}?v=dark_theme_v3" defer></script>
 <script src="{{ url_for('static', filename='js/graph_view.js') }}" defer></script>

@@ -250,6 +250,12 @@
                     window.openInStellarium();
                 }
                 break;
+            case 'send-to-nina':
+                console.log('[GRAPH_VIEW] send-to-nina');
+                if (typeof window.sendToNINA === 'function') {
+                    window.sendToNINA();
+                }
+                break;
             case 'close-framing-assistant':
                 console.log('[GRAPH_VIEW] close-framing-assistant');
                 if (typeof window.closeFramingAssistant === 'function') {
@@ -393,6 +399,7 @@
 
     // --- Main Initialization Block (DOMContentLoaded) ---
     document.addEventListener('DOMContentLoaded', function(event) {
+        console.log('[GRAPH_VIEW] Main DOMContentLoaded handler fired');
         // --- Guest/Trix Setup ---
         if (window.IS_GUEST_USER) {
             var trixEditor = document.getElementById('project-field-editor');
@@ -433,7 +440,13 @@
         var lastTab = localStorage.getItem('lastActiveTab-' + JSON.stringify(objectName));
         var tabToShow = tabFromUrl || lastTab || 'chart';
 
-        showTab(tabToShow);
+        console.log('[GRAPH_VIEW] About to call showTab with:', tabToShow);
+        try {
+            showTab(tabToShow);
+            console.log('[GRAPH_VIEW] showTab completed successfully');
+        } catch(e) {
+            console.error('[GRAPH_VIEW] showTab error:', e);
+        }
 
         // --- Auto-Switch Chart View ---
         if (tabToShow === 'chart' && periodFromUrl === 'yearly') {
