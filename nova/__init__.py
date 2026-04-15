@@ -5983,6 +5983,9 @@ def get_hybrid_weather_forecast(lat, lon):
                 est_trans = _estimate_transparency(visibility, rh)
                 est_seeing = _estimate_seeing(temp, dew_point, wind)
 
+                moon = ephem.Moon(current_time)
+                moon_illumination = round(moon.phase, 1)
+
                 block = {
                     "timepoint": timepoint,
                     "cloudcover": cloudcover_1_9,
@@ -5991,8 +5994,9 @@ def get_hybrid_weather_forecast(lat, lon):
                     "wind_speed": wind,
                     "seeing": -est_seeing if est_seeing else -9999,
                     "transparency": -est_trans if est_trans else -9999,
+                    "moon_illumination": moon_illumination,
                 }
-                translated_dataseries[timepoint] = block  # Store by timepoint
+                translated_dataseries[timepoint] = block
 
             base_dataseries = translated_dataseries
             # print(f"[Weather Func] Successfully translated {len(base_dataseries)} blocks from Open-Meteo.")
@@ -6067,9 +6071,9 @@ def get_hybrid_weather_forecast(lat, lon):
                             base_dataseries[tp]["transparency"] = ablk["transparency"]
                         # --- END FIX ---
                     else:
-                        # Open-Meteo failed, use 7Timer! block as a fallback
-                        # Add cloudcover placeholder if it doesn't exist
                         ablk.setdefault("cloudcover", 9)
+                        moon = ephem.Moon(abs_time)
+                        ablk["moon_illumination"] = round(moon.phase, 1)
                         base_dataseries[tp] = ablk
 
                 except Exception as e:
@@ -12854,6 +12858,9 @@ def dashboard():
 
     # Get hiding preference (safe default False)
     hide_invisible_pref = g.user_config.get("hide_invisible", True)
+    # Get imaging criteria for weather panel
+    imaging_criteria = g.user_config.get("imaging_criteria", {})
+    min_imaging_window_hours = imaging_criteria.get("min_imaging_window_hours", 3)
 
     record_event("dashboard_load")
     return render_template(
@@ -12863,6 +12870,7 @@ def dashboard():
         selected_month=observing_date_for_calcs.month,
         selected_year=observing_date_for_calcs.year,
         hide_invisible=hide_invisible_pref,
+        min_imaging_window_hours=min_imaging_window_hours,
     )
 
 
@@ -13429,6 +13437,9 @@ def config_form():
                 )
                 imaging_criteria["search_horizon_months"] = int(
                     request.form.get("search_horizon_months", 6)
+                )
+                imaging_criteria["min_imaging_window_hours"] = int(
+                    request.form.get("min_imaging_window_hours", 3)
                 )
                 prefs.json_blob = json.dumps(settings)
                 message = "General settings updated."
